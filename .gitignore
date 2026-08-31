@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Django
+*.sqlite3
+*.sqlite3-*
+staticfiles/
+media/
+
+# Segredos: ignora qualquer .env, com excecao explicita do exemplo
+.env
+.env.*
+!.env.example
+
+# Documentacao local (infra, IPs, notas) -- nao vai para o GitHub
+docs/local/
+
+# Ferramentas
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Chaves e certificados: nunca devem entrar no repositorio
+*.pem
+*.key
+*_rsa
+*_ed25519
+id_*
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store

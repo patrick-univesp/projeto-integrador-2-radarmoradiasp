@@ -1,0 +1,172 @@
+name: CI/CD
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Testes e lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      SECRET_KEY: django-insecure-chave-so-para-ci
+      DEBUG: "True"
+      ALLOWED_HOSTS: "localhost"
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Migracoes pendentes
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Testes
+        run: pytest tests/ -v
+
+  sast:
+    name: SAST (Bandit + pip-audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - run: pip install bandit pip-audit
+
+      - name: Bandit
+        run: bandit -c bandit.toml -r radar/ config/
+
+      - name: pip-audit
+        run: pip-audit -r requirements.txt
+
+  deploy:
+    name: Deploy na OCI
+    needs: [build-and-test, sast]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      packages: write
+
+    # No job, nao no workflow: cancelar no meio deixaria a VM em estado indefinido.
+    concurrency:
+      group: deploy-oci
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Nome da imagem em minusculas
+        run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+
+      # Necessario para `cache-to: type=gha`: o driver docker padrao nao exporta cache.
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Login no GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build e push da imagem
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          provenance: true
+          sbom: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy via SSH
+        env:
+          IMAGE: ${{ env.IMAGE }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_ACTOR: ${{ github.actor }}
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          SSH_KEY: ${{ secrets.OCI_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.OCI_KNOWN_HOSTS }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          ALLOWED_HOSTS: ${{ secrets.ALLOWED_HOSTS }}
+          CSRF_TRUSTED_ORIGINS: ${{ secrets.CSRF_TRUSTED_ORIGINS }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p ~/.ssh
+
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          # Remove CR, linhas vazias e comentarios que o ssh-keyscan emite
+          printf '%s\n' "$KNOWN_HOSTS" | sed -e 's/\r$//' -e '/^[[:space:]]*$/d' -e '/^#/d' \
+            > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          if [ ! -s ~/.ssh/known_hosts ]; then
+            echo "::error::Secret OCI_KNOWN_HOSTS vazio. Gere com:" \
+                 "ssh-keyscan -t rsa,ecdsa,ed25519 <IP-DA-VM> 2>/dev/null"
+            exit 1
+          fi
+
+          if ! ssh-keygen -F "$OCI_HOST" -f ~/.ssh/known_hosts > /dev/null 2>&1; then
+            echo "::error::known_hosts tem $(wc -l < ~/.ssh/known_hosts) entrada(s)," \
+                 "mas nenhuma para o host de OCI_HOST."
+            exit 1
+          fi
+
+          echo "known_hosts validado: $(wc -l < ~/.ssh/known_hosts) entrada(s)."
+
+          SSH_OPTS=(-i ~/.ssh/deploy_key
+                    -o UserKnownHostsFile=~/.ssh/known_hosts
+                    -o StrictHostKeyChecking=yes
+                    -o BatchMode=yes
+                    -o ConnectTimeout=15)
+
+          # Config vai por stdin, nao por scp: o forced command da chave restrita
+          # sequestra o subsystem SFTP que o scp usa desde o OpenSSH 9.0.
+          {
+            echo "DJANGO_SETTINGS_MODULE=config.settings.production"
+            echo "DEBUG=False"
+            echo "SECRET_KEY=$SECRET_KEY"
+            echo "ALLOWED_HOSTS=$ALLOWED_HOSTS"
+            echo "CSRF_TRUSTED_ORIGINS=$CSRF_TRUSTED_ORIGINS"
+            echo "DB_PATH=/app/data/db.sqlite3"
+            echo "---DEPLOY---"
+            echo "IMAGE='$IMAGE'"
+            echo "GHCR_ACTOR='$GHCR_ACTOR'"
+            echo "GHCR_TOKEN='$GHCR_TOKEN'"
+          } | ssh "${SSH_OPTS[@]}" "ubuntu@$OCI_HOST" /usr/local/bin/radar-deploy.sh
