@@ -35,3 +35,11 @@ id_*
 .vscode/
 .idea/
 .DS_Store
+
+# Agentes e ferramentas locais
+.agents/
+.claude/
+.github/agents/
+.github/hooks/
+.github/skills/
+skills-lock.json

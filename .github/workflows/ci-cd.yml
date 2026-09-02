@@ -37,6 +37,9 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
 
+      - name: Lint templates (djlint)
+        run: djlint templates/
+
       - name: Migracoes pendentes
         run: python manage.py makemigrations --check --dry-run
 

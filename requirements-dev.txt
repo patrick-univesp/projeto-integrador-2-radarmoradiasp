@@ -4,3 +4,4 @@ pytest
 pytest-django
 bandit
 pip-audit
+djlint

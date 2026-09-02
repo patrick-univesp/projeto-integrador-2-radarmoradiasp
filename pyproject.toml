@@ -1,0 +1,5 @@
+[tool.ruff]
+include = ["radar/**/*.py", "config/**/*.py", "tests/**/*.py"]
+
+[tool.djlint]
+profile = "django"

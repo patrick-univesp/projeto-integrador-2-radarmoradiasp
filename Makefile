@@ -4,6 +4,7 @@ PYTHON = venv/bin/python
 PIP = venv/bin/pip
 PYTEST = venv/bin/pytest
 RUFF = venv/bin/ruff
+DJLINT = venv/bin/djlint
 MANAGE = $(PYTHON) manage.py
 
 .PHONY: help install setup-env migrate run test lint format createsuperuser sast collectstatic reset-db deploy-script
@@ -31,11 +32,13 @@ run: ## Sobe o servidor de desenvolvimento
 test: ## Executa os testes
 	$(PYTEST) tests/ -v
 
-lint: ## Verifica estilo com ruff
+lint: ## Verifica estilo com ruff e djlint
 	$(RUFF) check .
+	$(DJLINT) templates/
 
-format: ## Formata o codigo com ruff
+format: ## Formata o codigo com ruff e djlint
 	$(RUFF) format .
+	$(DJLINT) templates/ --reformat
 
 collectstatic: ## Coleta os arquivos estaticos
 	$(MANAGE) collectstatic --noinput
