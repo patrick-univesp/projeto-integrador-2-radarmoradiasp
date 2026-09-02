@@ -53,11 +53,18 @@ def test_500_renderiza_sem_contexto_de_requisicao():
     assert "{%" not in saida
 
 
-@pytest.mark.parametrize("nome", ["css/tokens.css", "css/base.css"])
+@pytest.mark.parametrize("nome", ["css/tokens.css", "css/base.css", "js/busca_animada.js"])
 def test_estatico_existe(nome):
     from django.contrib.staticfiles import finders
 
     assert finders.find(nome), f"não encontrado em STATICFILES_DIRS: {nome}"
+
+
+def test_inicio_carrega_busca_animada(client):
+    corpo = client.get(reverse("radar:inicio")).content.decode()
+    assert "busca_animada.js" in corpo
+
+
 
 
 def test_sem_script_inline(client):
