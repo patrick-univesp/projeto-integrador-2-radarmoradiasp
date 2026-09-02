@@ -1,0 +1,207 @@
+:root {
+  color-scheme: light;
+
+  --bg:            #FCF8F5;
+  --bg:            oklch(0.982 0.006 62);
+  --surface:       #FFFFFF;
+  --surface:       oklch(1 0 0);
+  --surface-2:     #F6F1EC;
+  --surface-2:     oklch(0.960 0.008 62);
+  --surface-3:     #EDE6E1;
+  --surface-3:     oklch(0.930 0.011 62);
+  --line:          #E3DBD4;
+  --line:          oklch(0.895 0.013 62);
+  --line-strong:   #C3B8AF;
+  --line-strong:   oklch(0.790 0.018 62);
+
+  --text:          #261C15;
+  --text:          oklch(0.235 0.020 55);
+  --text-2:        #62554D;
+  --text-2:        oklch(0.460 0.022 55);
+  --text-3:        #7D7169;
+  --text-3:        oklch(0.557 0.020 55);
+
+  --accent:        #A14512;
+  --accent:        oklch(0.505 0.135 45);
+  --accent-ink:    #782C07;
+  --accent-ink:    oklch(0.400 0.115 42);
+  --accent-soft:   #FFEBDE;
+  --accent-soft:   oklch(0.955 0.030 55);
+  --accent-line:   #B6866C;
+  --accent-line:   oklch(0.661 0.070 50);
+  --accent-on:     #FFFFFF;
+  --accent-on:     oklch(1 0 0);
+
+  --r1:            #F7DEC8;
+  --r1:            oklch(0.915 0.040 62);
+  --r2:            #EBB690;
+  --r2:            oklch(0.815 0.080 56);
+  --r3:            #D7885A;
+  --r3:            oklch(0.700 0.115 50);
+  --r4:            #BD5F31;
+  --r4:            oklch(0.590 0.135 45);
+  --r5:            #953B17;
+  --r5:            oklch(0.470 0.130 40);
+
+  --r-ink-baixo:   var(--text);
+  --r-ink-alto:    #FFFFFF;
+  --r-ink-alto:    oklch(1 0 0);
+
+  --hatch:         #D9CFC7;
+  --hatch:         oklch(0.860 0.016 62);
+
+  --shadow: 0 1px 2px rgba(38, 28, 21, .07), 0 8px 24px rgba(38, 28, 21, .07);
+  --shadow: 0 1px 2px oklch(0.235 0.020 55 / .07), 0 8px 24px oklch(0.235 0.020 55 / .07);
+
+  --fonte-texto: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fonte-mono:  "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --t-numero:    3.25rem;
+  --t-titulo:    1.75rem;
+  --t-secao:     1.25rem;
+  --t-corpo:     1rem;
+  --t-apoio:     0.875rem;
+  --t-rotulo:    0.6875rem;
+
+  --peso-normal: 400;
+  --peso-forte:  600;
+  --peso-numero: 700;
+
+  --e-1: 4px;   --e-2: 8px;   --e-3: 12px;  --e-4: 16px;
+  --e-5: 20px;  --e-6: 24px;  --e-8: 32px;  --e-12: 48px;
+
+  --margem-lateral: var(--e-5);
+  --alvo-toque: 44px;
+
+  --raio-marcador: 2px;
+  --raio-botao:    8px;
+  --raio-cartao:   12px;
+  --raio-resposta: 16px;
+  --raio-atalho:   999px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg:            #18110D;
+  --bg:            oklch(0.185 0.014 55);
+  --surface:       #231B15;
+  --surface:       oklch(0.230 0.017 55);
+  --surface-2:     #2D241D;
+  --surface-2:     oklch(0.268 0.019 55);
+  --surface-3:     #382C25;
+  --surface-3:     oklch(0.305 0.021 55);
+  --line:          #43362E;
+  --line:          oklch(0.345 0.022 55);
+  --line-strong:   #63544A;
+  --line-strong:   oklch(0.458 0.026 55);
+
+  --text:          #F6F1EC;
+  --text:          oklch(0.960 0.008 62);
+  --text-2:        #C0B6AE;
+  --text-2:        oklch(0.782 0.016 62);
+  --text-3:        #988E85;
+  --text-3:        oklch(0.652 0.018 62);
+
+  --accent:        #E8905E;
+  --accent:        oklch(0.735 0.125 50);
+  --accent-ink:    #FBBD94;
+  --accent-ink:    oklch(0.845 0.090 55);
+  --accent-soft:   #41261A;
+  --accent-soft:   oklch(0.300 0.045 45);
+  --accent-line:   #89543B;
+  --accent-line:   oklch(0.499 0.080 45);
+  --accent-on:     #18110D;
+  --accent-on:     oklch(0.185 0.014 55);
+
+  --r1:            #463423;
+  --r1:            oklch(0.340 0.038 62);
+  --r2:            #70482A;
+  --r2:            oklch(0.440 0.070 56);
+  --r3:            #A25E35;
+  --r3:            oklch(0.550 0.105 50);
+  --r4:            #D0774E;
+  --r4:            oklch(0.660 0.125 45);
+  --r5:            #F8A372;
+  --r5:            oklch(0.790 0.120 50);
+
+  --r-ink-baixo:   var(--text);
+  --r-ink-alto:    #18110D;
+  --r-ink-alto:    oklch(0.185 0.014 55);
+
+  --hatch:         #51443C;
+  --hatch:         oklch(0.398 0.022 55);
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, .32), 0 10px 30px rgba(0, 0, 0, .38);
+  --shadow: 0 1px 2px oklch(0 0 0 / .32), 0 10px 30px oklch(0 0 0 / .38);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg:          #18110D;
+    --bg:          oklch(0.185 0.014 55);
+    --surface:     #231B15;
+    --surface:     oklch(0.230 0.017 55);
+    --surface-2:   #2D241D;
+    --surface-2:   oklch(0.268 0.019 55);
+    --surface-3:   #382C25;
+    --surface-3:   oklch(0.305 0.021 55);
+    --line:        #43362E;
+    --line:        oklch(0.345 0.022 55);
+    --line-strong: #63544A;
+    --line-strong: oklch(0.458 0.026 55);
+
+    --text:        #F6F1EC;
+    --text:        oklch(0.960 0.008 62);
+    --text-2:      #C0B6AE;
+    --text-2:      oklch(0.782 0.016 62);
+    --text-3:      #988E85;
+    --text-3:      oklch(0.652 0.018 62);
+
+    --accent:      #E8905E;
+    --accent:      oklch(0.735 0.125 50);
+    --accent-ink:  #FBBD94;
+    --accent-ink:  oklch(0.845 0.090 55);
+    --accent-soft: #41261A;
+    --accent-soft: oklch(0.300 0.045 45);
+    --accent-line: #89543B;
+    --accent-line: oklch(0.499 0.080 45);
+    --accent-on:   #18110D;
+    --accent-on:   oklch(0.185 0.014 55);
+
+    --r1:          #463423;
+    --r1:          oklch(0.340 0.038 62);
+    --r2:          #70482A;
+    --r2:          oklch(0.440 0.070 56);
+    --r3:          #A25E35;
+    --r3:          oklch(0.550 0.105 50);
+    --r4:          #D0774E;
+    --r4:          oklch(0.660 0.125 45);
+    --r5:          #F8A372;
+    --r5:          oklch(0.790 0.120 50);
+
+    --r-ink-baixo: var(--text);
+    --r-ink-alto:  #18110D;
+    --r-ink-alto:  oklch(0.185 0.014 55);
+
+    --hatch:       #51443C;
+    --hatch:       oklch(0.398 0.022 55);
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, .32), 0 10px 30px rgba(0, 0, 0, .38);
+    --shadow: 0 1px 2px oklch(0 0 0 / .32), 0 10px 30px oklch(0 0 0 / .38);
+  }
+}
+
+@media (min-width: 768px) {
+  :root { --margem-lateral: var(--e-12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

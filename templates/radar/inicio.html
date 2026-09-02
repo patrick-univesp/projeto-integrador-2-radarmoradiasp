@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block conteudo %}
+{% load static %}
+<div class="hero-area">
+  <div class="silhueta" aria-hidden="true"></div>
+  <div class="container hero">
+    <div class="hero__interno">
+      <h1 class="hero__titulo">Quanto se pagou de verdade por metro quadrado na região?</h1>
+      <p class="hero__sub">Preços de imóveis que realmente mudaram de dono em São Paulo — declarados no imposto pago em cada venda.</p>
+
+      <form class="busca hero__busca" action="{% url 'radar:busca' %}" method="get" role="search">
+        <label class="mono hero__rotulo" for="q">buscar região</label>
+        <div class="busca__caixa">
+          <span class="busca__lupa" aria-hidden="true"></span>
+          <input class="busca__campo" type="search" id="q" name="q"
+                 placeholder="Digite um bairro, rua ou CEP de São Paulo"
+                 autocomplete="off" enterkeyhint="search" required>
+          <button class="busca__botao" type="submit">Buscar</button>
+        </div>
+      </form>
+
+      <div class="hero__atalhos">
+        <div class="atalhos">
+          <span class="mono hero__atalhos-titulo">mais buscadas</span>
+          {% for r in regioes_destaque %}
+            <a class="atalho" href="{% url 'radar:regiao' r.slug %}">{{ r.nome }}</a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

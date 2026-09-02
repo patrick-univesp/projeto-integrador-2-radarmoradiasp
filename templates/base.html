@@ -1,0 +1,39 @@
+{% load static %}<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Radar da Moradia SP{% endblock %}</title>
+  <meta name="description" content="{% block descricao %}Quanto se pagou de verdade por metro quadrado em São Paulo, a partir das guias de ITBI pagas à Prefeitura.{% endblock %}">
+
+  <link rel="preload" href="{% static 'fonts/IBMPlexSans-Regular.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  {% block css %}{% endblock %}
+</head>
+<body>
+  <a class="pular-para-conteudo" href="#conteudo">Pular para o conteúdo</a>
+
+  <header class="topo">
+    <div class="container topo__linha">
+      <a class="marca" href="{% url 'radar:inicio' %}">
+        <span class="marca__sinal" aria-hidden="true"></span>
+        Radar da Moradia SP
+      </a>
+      <div class="topo__acoes">
+        <a class="topo__botao" href="{% url 'radar:entrar' %}">Entrar</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="conteudo">
+    {% block conteudo %}{% endblock %}
+  </main>
+
+  <footer class="rodape">
+    <div class="container rodape__linha">
+      <span>Projeto Integrador em Computação 2 · UNIVESP</span>
+    </div>
+  </footer>
+</body>
+</html>
