@@ -4,8 +4,9 @@ Documentação do esquema criado em `radar/models.py` — o modelo que sustenta 
 resto do produto.
 
 > **Escopo desta doc:** só o modelo `Transacao` e a migration `0001_initial`. As
-> regras que preenchem os campos derivados e a referência de geocodificação são
-> descritas junto da carga de dados.
+> regras que preenchem os campos derivados estão em
+> [`carga-mineracao.md`](carga-mineracao.md); a referência de geocodificação é
+> descrita junto da carga de dados.
 
 ---
 
