@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Gera tests/dados/amostra_itbi.xlsx — uma planilha sintética minúscula (2 abas,
-poucas linhas) que exercita os casos difíceis da carga. Não é extraída da planilha
-real; é montada à mão para o teste ser autossuficiente.
+"""Gera tests/dados/amostra_itbi.xlsx — planilha sintética minúscula (2 abas, 10
+linhas) montada à mão para exercitar os casos difíceis da carga. É a fixture do
+CI: hermética e o recorte de geo que a acompanha (tests/dados/dados_geo_amostra/)
+fica minúsculo.
 
     python tests/dados/gerar_amostra_itbi.py
+
+Para conferir a carga contra dado REAL, ver scripts/gerar_amostra.py.
 """
 
 import datetime as dt
@@ -54,6 +57,11 @@ LINHAS_JAN = [
     [99912300010, "R INEXISTENTE", 10, None, "BAIRRO X", None, 8000000, "1.Compra e venda",
      700000, D(2026, 1, 28), 700000, 100, 700000, 700000, None, 0, "9º CRI", 6000,
      "Ativo Predial", 300, 10.0, 1.0, 150, 20, "APARTAMENTO EM CONDOMINIO", 24, "RESIDENCIAL VERTICAL", 2015],
+    # lote fora do recorte, mas rua+quadra existem -> T3 (nº mais próximo de 121)
+    [102302388, "R PAULA SOUSA", 150, "CJ 4", "SE", None, 1020000, "1.Compra e venda",
+     880000, D(2026, 1, 30), 880000, 100, 880000, 880000, None, 0, "1º CRI", 6100,
+     "Ativo Predial", 210, 8.0, 1.0, 160, 30, "ESCRITORIO/CONSULTORIO EM CONDOMINIO", 44,
+     "COMERCIAL VERTICAL", 2001],
 ]
 
 LINHAS_FEV = [

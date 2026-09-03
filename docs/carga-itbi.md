@@ -31,9 +31,9 @@ flowchart TD
 
 **Por que agrupar por setor:** carregar a referência geo da cidade inteira custa
 ~450 MB (fica perto do teto de 600 MB do container). Carregando **um setor por
-vez**, o pico cai para **~263 MB** — medido na carga completa das 7 abas (135.655
-linhas, 170 s). O custo é reabrir 269 arquivos `.json.gz`; para uma carga que roda
-poucas vezes por ano, compensa.
+vez**, o pico cai para **~245 MB** — medido na carga completa das 7 abas (135.655
+linhas, ~100–170 s). O custo é reabrir 269 arquivos `.json.gz`; para uma carga que
+roda poucas vezes por ano, compensa.
 
 ---
 
@@ -57,8 +57,8 @@ poucas vezes por ano, compensa.
 
 ## Upload pelo admin
 
-No `/admin/` (caminho real vem de `ADMIN_URL`), **Cargas mensais → Carregar
-planilha**: envia o `.xlsx` (limite 40 MB), a view salva num arquivo temporário,
+No `/admin/`, **Cargas mensais → Carregar planilha**: envia o `.xlsx` (limite
+40 MB), a view salva num arquivo temporário,
 cria um registro **`CargaMensal`** e dispara `carregar()` numa `threading.Thread`.
 Volta na hora; o progresso (linhas gravadas, `qualidade!=0`, sem geo, pico de
 memória) aparece na linha do `CargaMensal`, que é só-leitura.
@@ -110,3 +110,21 @@ gerada de um *crawl* que ia até jun/2026, então quadras que só transacionaram
 julho ainda não estão nela. `scripts/prefetch_geo.py --refresh <setor>:<quadra>,...`
 preenche. As linhas `--` **entram no banco** (não são puladas) — só não têm ponto no
 mapa.
+
+---
+
+## A amostra de teste
+
+O CI exercita a carga ponta a ponta com uma amostra **sintética** —
+`tests/dados/amostra_itbi.xlsx` (10 linhas, 2 abas), montada à mão por
+`tests/dados/gerar_amostra_itbi.py`. É de propósito: hermética (não depende da
+planilha de 27 MB), cada caso difícil garantido por construção
+(`setor < 100`, `bairro` vazio e lixo de complemento, grafia aglutinada, CEP com
+zero à esquerda, `rs_m2` que se aplica e que não, `uso` 0/20/74, colunas
+deslocadas, ano 1997 e 2026, geo T1/T3/`--`), e o recorte de geo que a acompanha
+(`tests/dados/dados_geo_amostra/`, 2 setores) fica minúsculo.
+
+Para conferir a carga contra **dado real**:
+`python scripts/gerar_amostra.py "<planilha completa>.xlsx"` extrai ~150 linhas que
+cobrem os mesmos casos e escreve um `.xlsx`. Não mexe em geo; se for adotar como
+fixture, recorte também `radar/dados_geo/` para os setores dos SQLs escolhidos.

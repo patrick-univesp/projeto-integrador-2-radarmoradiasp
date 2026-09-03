@@ -1,5 +1,5 @@
 """Lookup na referência geo versionada. Sem shapely, sem rede — usa a amostra
-em tests/carga/dados_geo_amostra/."""
+em tests/dados/dados_geo_amostra/."""
 
 from pathlib import Path
 
@@ -8,7 +8,7 @@ import pytest
 from radar.carga import geo_ref
 from radar.carga.geo_ref import carregar_indices, resolver
 
-AMOSTRA = Path(__file__).parent / "dados_geo_amostra"
+AMOSTRA = Path(__file__).parent.parent / "dados" / "dados_geo_amostra"
 
 
 @pytest.fixture(scope="module")
