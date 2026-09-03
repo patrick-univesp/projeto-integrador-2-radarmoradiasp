@@ -51,7 +51,44 @@ poucas vezes por ano, compensa.
 | `--dry-run` | parseia, minera e valida sem gravar |
 
 `carregar(arquivo, abas, ..., progresso=callback)` é uma função separada do
-`Command` — é ela que a tela de admin vai reusar por trás de um upload assíncrono.
+`Command` — é ela que a tela de admin reusa por trás do upload assíncrono (abaixo).
+
+---
+
+## Upload pelo admin
+
+No `/admin/` (caminho real vem de `ADMIN_URL`), **Cargas mensais → Carregar
+planilha**: envia o `.xlsx` (limite 40 MB), a view salva num arquivo temporário,
+cria um registro **`CargaMensal`** e dispara `carregar()` numa `threading.Thread`.
+Volta na hora; o progresso (linhas gravadas, `qualidade!=0`, sem geo, pico de
+memória) aparece na linha do `CargaMensal`, que é só-leitura.
+
+```mermaid
+flowchart LR
+    U["upload .xlsx<br/>(≤ 40 MB, .xlsx)"] --> V["view do admin"]
+    V --> G{"já há carga<br/>pendente/rodando?"}
+    G -- sim --> R["recusa"]
+    G -- não --> C["cria CargaMensal(pendente)<br/>+ Thread(daemon)"]
+    C --> D["redireciona para a linha"]
+    C -. em segundo plano .-> W["carregar() → atualiza a linha<br/>concluido / erro"]
+```
+
+- **Uma carga por vez.** Uma linha em `rodando` há mais de 2 h conta como morta
+  (thread/processo derrubado) e não bloqueia.
+- **`--substituir-mes` é o padrão** da tela — reenviar a planilha do mês seguinte
+  não duplica os meses já carregados.
+- **Sem Celery/Redis.** A `thread` divide o processo do gunicorn; para uma carga que
+  roda poucas vezes por ano, com um operador, é aceitável (o SQLite serializa as
+  escritas; a `thread` fecha a própria conexão no fim). Se um dia doer — carga
+  concorrente com tráfego pesado, ou carga semanal —, a troca registrada é
+  `django-tasks`/`huey` com broker SQLite, **não** Celery.
+
+## Proteção do login do admin
+
+O login é protegido por **`django-axes`** (5 tentativas, *cooloff* de 30 min, trava
+por `[usuário, ip]` e por `ip`), e o IP real vem do `CF-Connecting-IP` — atrás do
+túnel o `REMOTE_ADDR` é sempre `127.0.0.1` (`config/ip.py`). A sessão do admin em
+produção dura 8 h em vez das duas semanas padrão.
 
 ---
 

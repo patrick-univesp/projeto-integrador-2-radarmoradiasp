@@ -1,0 +1,18 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  {% if em_andamento %}
+    <p class="errornote">Já há uma carga em andamento. Espere ela terminar antes de subir outra.</p>
+  {% endif %}
+
+  <p>Envia a planilha de guias de ITBI pagas. A carga roda em segundo plano; o
+  progresso aparece na linha criada em <a href="{% url 'admin:radar_cargamensal_changelist' %}">Cargas mensais</a>.</p>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_div }}
+    <div class="submit-row">
+      <input type="submit" value="Carregar" class="default">
+    </div>
+  </form>
+{% endblock %}

@@ -1,4 +1,39 @@
+from django.conf import settings
 from django.db import models
+
+
+class CargaMensal(models.Model):
+    """Uma execução da carga disparada pela tela de admin. Guarda o progresso —
+    a carga roda numa thread e vai atualizando esta linha. Ver ``docs/carga-itbi.md``.
+    """
+
+    PENDENTE, RODANDO, CONCLUIDO, ERRO = "pendente", "rodando", "concluido", "erro"
+    STATUS = [(PENDENTE, "pendente"), (RODANDO, "rodando"),
+              (CONCLUIDO, "concluído"), (ERRO, "erro")]
+
+    arquivo_nome = models.CharField(max_length=255)
+    abas = models.CharField(max_length=200, blank=True)
+    substituir_mes = models.BooleanField(default=True)
+    status = models.CharField(max_length=10, choices=STATUS, default=PENDENTE, db_index=True)
+    linhas_lidas = models.IntegerField(default=0)
+    linhas_gravadas = models.IntegerField(default=0)
+    linhas_descartadas = models.IntegerField(default=0)
+    sem_geo = models.IntegerField(default=0)
+    qualidade_ruim = models.IntegerField(default=0)
+    pico_mb = models.IntegerField(null=True)
+    erro_msg = models.TextField(blank=True)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True,
+                                   on_delete=models.SET_NULL)
+    iniciado_em = models.DateTimeField(auto_now_add=True)
+    terminado_em = models.DateTimeField(null=True)
+
+    class Meta:
+        verbose_name = "carga mensal"
+        verbose_name_plural = "cargas mensais"
+        ordering = ("-iniciado_em",)
+
+    def __str__(self):
+        return f"{self.arquivo_nome} — {self.get_status_display()}"
 
 
 class Transacao(models.Model):

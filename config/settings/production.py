@@ -14,6 +14,10 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
+# Padrao do Django e duas semanas. A unica sessao que existe hoje e a de quem
+# administra, entao vale encurtar a janela de uma sessao roubada.
+SESSION_COOKIE_AGE = 8 * 60 * 60
+
 CSRF_TRUSTED_ORIGINS = [
     o.strip() for o in config("CSRF_TRUSTED_ORIGINS", default="").split(",") if o.strip()
 ]

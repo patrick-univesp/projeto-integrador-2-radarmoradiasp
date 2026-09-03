@@ -1,3 +1,4 @@
+from datetime import timedelta
 from pathlib import Path
 
 from decouple import config
@@ -15,6 +16,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "axes",
     "radar",
 ]
 
@@ -26,7 +28,26 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Precisa ser o ultimo: o axes le o resultado da autenticacao ja resolvido.
+    "axes.middleware.AxesMiddleware",
 ]
+
+# AxesStandaloneBackend precisa vir primeiro para interceptar a tentativa antes do
+# ModelBackend confirmar a senha.
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+# Bloqueio de forca bruta no login (inclusive o do admin).
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=30)
+AXES_RESET_ON_SUCCESS = True
+AXES_CLIENT_IP_CALLABLE = "config.ip.cliente_real"
+
+# [usuario, ip] trava o par; [ip] trava o IP que varre varios usuarios. Travar
+# so por usuario ficou de fora: qualquer um trancaria a conta da equipe.
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"], "ip_address"]
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
