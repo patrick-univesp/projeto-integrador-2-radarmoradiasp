@@ -57,6 +57,12 @@ a:hover { color: var(--accent-ink); text-decoration: underline; }
   color: var(--text-3);
 }
 
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .container {
   width: 100%;
   max-width: 1120px;
@@ -256,7 +262,15 @@ a:hover { color: var(--accent-ink); text-decoration: underline; }
   text-decoration: none;
 }
 
-.hero-area { position: relative; overflow: hidden; }
+.hero-area {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: calc(100dvh - 65px - 58px);
+}
 .hero-area > .container { position: relative; z-index: 1; }
 
 .silhueta {
@@ -277,6 +291,92 @@ a:hover { color: var(--accent-ink); text-decoration: underline; }
   mask-size: contain;
   mask-position: center center;
   opacity: 0.75;
+}
+
+.fundo-cadastral {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("../img/planta-cadastral.jpg");
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  mix-blend-mode: multiply;
+  opacity: 0.30;
+  -webkit-mask-image: radial-gradient(ellipse 820px 380px at 50% 50%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 55%, black 100%);
+  mask-image: radial-gradient(ellipse 820px 380px at 50% 50%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 55%, black 100%);
+}
+
+.hero__lateral {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  font-family: var(--fonte-mono);
+  font-size: var(--t-rotulo);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.80;
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  writing-mode: vertical-rl;
+}
+.hero__lateral--esquerda {
+  left: var(--e-4);
+  transform: translateY(-50%) rotate(180deg);
+}
+.hero__lateral--direita {
+  right: var(--e-4);
+  transform: translateY(-50%);
+}
+.hero__lateral::before,
+.hero__lateral::after {
+  content: "";
+  display: block;
+  width: 1px;
+  height: 32px;
+  background: var(--line-strong);
+}
+
+.hero__coordenada {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding-inline: var(--margem-lateral);
+  font-family: var(--fonte-mono);
+  font-size: var(--t-rotulo);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.80;
+}
+.hero__coordenada--superior { top: var(--e-4); }
+.hero__coordenada--inferior { bottom: var(--e-4); }
+
+@media (max-width: 719px) {
+  .hero-area {
+    min-height: auto;
+  }
+  .hero__coordenada,
+  .hero__lateral {
+    display: none;
+  }
+  .fundo-cadastral {
+    opacity: 0.10;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
 }
 
 .hero { padding-block: var(--e-8) var(--e-12); }

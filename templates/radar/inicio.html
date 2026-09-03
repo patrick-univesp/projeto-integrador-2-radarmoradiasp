@@ -3,7 +3,25 @@
 {% block conteudo %}
 {% load static %}
 <div class="hero-area">
-  <div class="silhueta" aria-hidden="true"></div>
+  <div class="fundo-cadastral" aria-hidden="true"></div>
+
+  <!-- Coordenadas cartográficas nas laterais -->
+  <div class="hero__lateral hero__lateral--esquerda" aria-hidden="true">
+    <span>LAT 23°33'01"S</span>
+  </div>
+  <div class="hero__lateral hero__lateral--direita" aria-hidden="true">
+    <span>LON 46°38'02"W</span>
+  </div>
+
+  <div class="hero__coordenada hero__coordenada--superior" aria-hidden="true">
+    <span>SÃO PAULO · CAPITAL</span>
+    <span>SIRGAS 2000 · UTM 23S</span>
+  </div>
+  <div class="hero__coordenada hero__coordenada--inferior" aria-hidden="true">
+    <span>BASE CADASTRO FISCAL · PMSP</span>
+    <span>ITBI TRANSAÇÕES REAIS</span>
+  </div>
+
   <div class="container hero">
     <div class="hero__interno">
       <h1 class="hero__titulo">Quanto se pagou de verdade por metro quadrado na região?</h1>
