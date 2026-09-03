@@ -73,12 +73,11 @@ entre lotes vizinhos é menor que o próprio distrito).
 
 ### Custo de memória
 
-`carregar_indices()` monta ~1,4 M de entradas em quatro dicionários. Medido:
-**~450 MB de pico** — com *interning* das chaves e dedupe dos 96 distritos (sem isso,
-666 MB). O comando de carga roda `carregar_indices()` uma vez e depois faz streaming
-do `.xlsx` por cima; **é preciso medir com `docker stats` que o total fica abaixo dos
-600 MB do container.** Se não couber, a saída é a carga processar as transações
-agrupadas por setor e carregar um setor de geo por vez.
+`carregar_indices()` (a cidade inteira) monta ~1,4 M de entradas em quatro
+dicionários: **~450 MB de pico**, perto do teto de 600 MB do container. Por isso a
+carga **não usa** essa função — usa `indices_de_setor(setor)`, que lê um arquivo só
+(~poucos MB), processando as transações **agrupadas por setor**. Pico da carga
+completa: **~245 MB**. `carregar_indices()` fica para testes e uso pontual.
 
 ---
 

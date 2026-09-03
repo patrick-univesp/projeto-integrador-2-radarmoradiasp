@@ -33,6 +33,7 @@ def test_rs_m2_construido_trava_de_proporcao():
     assert rs_m2_construido(500_000, 100, 50) is None
     assert rs_m2_construido(500_000, 0, 100) is None
     assert rs_m2_construido(None, 100, 100) is None
+    assert rs_m2_construido(0, 100, 100) is None  # base zerada não é R$ 0/m²
 
 
 def test_rs_m2_terreno_exige_fracao_ideal():

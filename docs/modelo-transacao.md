@@ -3,10 +3,11 @@
 Documentação do esquema criado em `radar/models.py` — o modelo que sustenta todo o
 resto do produto.
 
-> **Escopo desta doc:** só o modelo `Transacao` e a migration `0001_initial`. As
-> regras que preenchem os campos derivados estão em
+> **Escopo desta doc:** o modelo `Transacao` (migrations `0001` + `0002`). As regras
+> que preenchem os campos derivados estão em
 > [`carga-mineracao.md`](carga-mineracao.md); a geocodificação (`lat`, `lon`,
-> `geo_nivel`, `distrito`), em [`referencia-geo.md`](referencia-geo.md).
+> `geo_nivel`, `distrito`), em [`referencia-geo.md`](referencia-geo.md); o comando
+> que grava tudo, em [`carga-itbi.md`](carga-itbi.md).
 
 ---
 
@@ -17,11 +18,12 @@ justo?"*. A resposta é a **mediana de R$/m² da região**, calculada sobre as
 transações reais de ITBI. `Transacao` é uma linha dessas — um negócio registrado numa
 guia de ITBI paga.
 
-O modelo nasce **enxuto**: 20 campos, não as ~55 do dataset enriquecido do projeto de
+O modelo nasce **enxuto**: 22 campos, não as ~55 do dataset enriquecido do projeto de
 referência. Entram agora só os campos que uma tela planejada consome, mais os que
 existem porque **sem eles o número exibido está errado** (`ano_transacao`,
-`qualidade`) ou porque o rótulo do imóvel não é confiável (`flag_cadastro_defasado`)
-— e o número é o produto. O resto entra por migration quando uma tela pedir
+`qualidade`), porque o rótulo do imóvel não é confiável (`flag_cadastro_defasado`) ou
+porque a carga precisa deles para ser idempotente (`ano_guia`, `mes_guia`) — e o
+número é o produto. O resto entra por migration quando uma tela pedir
 (`ALTER TABLE ADD COLUMN` é barato em SQLite; remover e renomear é que dói).
 
 ---
@@ -81,13 +83,15 @@ flowchart LR
 | `rs_m2_construido` | `DecimalField(12, 2)` | `null=True` | — | derivado | R$/m² construído; **`null=True`, jamais `default=0`** — ver abaixo |
 | `qualidade` | `SmallIntegerField` | `default=0` | simples | derivado | `0` = linha boa; `≠ 0` sai do cálculo por padrão — ver abaixo |
 | `flag_cadastro_defasado` | `BooleanField` | `default=False` | — | derivado | `True` quando o cadastro do IPTU não acompanhou a realidade (SQL como terreno/institucional, mas a venda é de apartamento) — ver abaixo |
+| `ano_guia` | `SmallIntegerField` | `null=True` | composto `(ano_guia, mes_guia)` | do nome da aba | ano em que a **guia** foi paga (a aba mensal da planilha) |
+| `mes_guia` | `SmallIntegerField` | `null=True` | composto `(ano_guia, mes_guia)` | do nome da aba | mês da guia — **não** é `data_transacao` (o negócio pode ser de anos antes); é a chave da carga idempotente |
 
 ---
 
-## Índices da migration inicial
+## Índices
 
 São eles que substituem o PostgreSQL: não há `pg_trgm` nem `unaccent`, e a consulta
-espacial é *bounding box*, não geometria. Nove ao todo.
+espacial é *bounding box*, não geometria. Dez ao todo (`0001` + `0002`).
 
 | Índice | Colunas | Consulta que serve |
 |---|---|---|
@@ -99,17 +103,18 @@ espacial é *bounding box*, não geometria. Nove ao todo.
 | `..._qualidade_...` | `qualidade` | esconder linhas ruins (quase toda consulta filtra `qualidade=0`) |
 | `radar_trans_lat_lon` | `(lat, lon)` | pontos dentro da área visível do mapa |
 | `radar_trans_distrito_ano` | `(distrito, ano_transacao)` | **a consulta da tela principal**: mediana da região num período |
+| `radar_trans_guia` | `(ano_guia, mes_guia)` | `--substituir-mes` da carga (`0002`) |
 | `radar_trans_bairro_ano` | `(bairro_norm, ano_transacao)` | idem, pela outra chave de busca |
 
-Os seis simples nascem de `db_index=True` no campo; os três compostos, de
+Os seis simples nascem de `db_index=True` no campo; os quatro compostos, de
 `Meta.indexes` com nome explícito.
 
 ---
 
 ## Fluxo de povoamento de uma linha
 
-O modelo é o destino de um pipeline de carga que roda **no servidor**, em streaming,
-sem `pandas` e sem `shapely` (ver `docs/local/arquitetura.md`).
+O modelo é o destino de um comando de carga que roda **no servidor**, em streaming,
+sem `pandas` e sem `shapely` (ver [`carga-itbi.md`](carga-itbi.md)).
 
 ```mermaid
 flowchart TD
@@ -241,17 +246,19 @@ classDiagram
         DecimalField rs_m2_construido
         SmallIntegerField qualidade
         BooleanField flag_cadastro_defasado
+        SmallIntegerField ano_guia
+        SmallIntegerField mes_guia
         __str__() str
     }
-    note for Transacao "verbose_name transação / transações. Índices compostos em Meta: (lat, lon), (distrito, ano_transacao), (bairro_norm, ano_transacao)."
+    note for Transacao "verbose_name transação / transações. Índices compostos: (lat, lon), (distrito, ano_transacao), (bairro_norm, ano_transacao), (ano_guia, mes_guia)."
 ```
 
 Anulável (`null=True`): `lat`, `lon`, `data_transacao`, `ano_transacao`,
-`area_construida`, `rs_m2_construido`.
+`area_construida`, `rs_m2_construido`, `ano_guia`, `mes_guia`.
 Pode ser vazio (`blank=True`): `complemento`, `bairro`, `bairro_norm`, `cep`,
 `distrito`, `geo_nivel`, `uso_grupo`.
 Indexado: `bairro_norm`, `cep`, `distrito`, `ano_transacao`, `uso_grupo`,
-`qualidade`, mais os três compostos. `flag_cadastro_defasado` fica sem índice até
+`qualidade`, mais os quatro compostos. `flag_cadastro_defasado` fica sem índice até
 uma tela agregá-lo.
 
 ---
@@ -263,7 +270,7 @@ uma tela agregá-lo.
 `tributado_por_vvr`, `itbi_estimado`, `tipo_financiamento`, `valor_financiado`,
 `pct_financiado`, `area_terreno`, `testada`, `fracao_ideal`, `uso_cod`, `uso_desc`,
 `padrao_cod`, `padrao_desc`, `padrao_nivel`, `acc`, `idade`, `rs_m2_terreno`, `agio`,
-`mes_guia`, `mes_transacao`, `defasagem_dias`, `subprefeitura`, `regiao`,
+`mes_transacao`, `defasagem_dias`, `subprefeitura`, `regiao`,
 `flag_suspeito`, `flag_transacao_antiga`, `flag_valor_inconsistente`.
 
 > `proporcao`, `tipo_financiamento`, `natureza` e `uso_cod` **não** viram campo agora,

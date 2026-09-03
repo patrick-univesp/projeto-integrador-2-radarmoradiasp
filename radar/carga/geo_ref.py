@@ -30,28 +30,43 @@ def _partes_sql(sql: str):
     return sql[:3], sql[3:6], sql[6:10]
 
 
-def carregar_indices(base_dir=None):
-    """Lê ``radar/dados_geo/*.json.gz`` e monta os quatro índices da escada de
-    resolução. Chamado uma vez por processo de carga."""
+def _indexar(lotes, setor, indices, triplas):
+    por_lote, por_endereco, por_rua, por_quadra = indices
+    for quadra, lote, _cond, logr, num, lon, lat, distrito, subpref, regiao in lotes:
+        t = (distrito, subpref, regiao)
+        geo = (lon, lat, triplas.setdefault(t, t))
+        por_lote[(setor, quadra, lote)] = geo
+        por_quadra.setdefault((setor, quadra), []).append(geo)
+        if logr:
+            por_endereco.setdefault((setor, quadra, logr, num), []).append(geo)
+            if num.isdigit():
+                por_rua.setdefault((setor, quadra, logr), []).append((int(num), geo))
+
+
+def indices_de_setor(setor, base_dir=None):
+    """Os quatro índices de **um** setor (``<setor>.json.gz``). É o que a carga
+    usa — ~poucos MB por setor, em vez dos ~450 MB da cidade toda."""
     base = Path(base_dir) if base_dir else DADOS_GEO
-    por_lote, por_endereco, por_rua, por_quadra = {}, {}, {}, {}
-    triplas: dict = {}  # dedupe de (distrito, subpref, regiao) — só 96 distintos
+    arq = base / f"{setor}.json.gz"
+    indices = ({}, {}, {}, {})
+    if arq.exists():
+        with gzip.open(arq, "rt", encoding="utf-8") as fh:
+            _indexar(json.load(fh)["lotes"], setor, indices, {})
+    return indices
+
+
+def carregar_indices(base_dir=None):
+    """Lê ``radar/dados_geo/*.json.gz`` e monta os quatro índices da cidade
+    inteira. ~450 MB — a carga usa ``indices_de_setor``; isto é para testes e
+    uso pontual."""
+    base = Path(base_dir) if base_dir else DADOS_GEO
+    indices = ({}, {}, {}, {})
+    triplas: dict = {}
     for arq in sorted(base.glob("*.json.gz")):
         setor = sys.intern(arq.name.split(".")[0])
         with gzip.open(arq, "rt", encoding="utf-8") as fh:
-            lotes = json.load(fh)["lotes"]
-        for quadra, lote, _cond, logr, num, lon, lat, distrito, subpref, regiao in lotes:
-            quadra = sys.intern(quadra)
-            t = (distrito, subpref, regiao)
-            geo = (lon, lat, triplas.setdefault(t, t))
-            por_lote[(setor, quadra, sys.intern(lote))] = geo
-            por_quadra.setdefault((setor, quadra), []).append(geo)
-            if logr:
-                logr = sys.intern(logr)
-                por_endereco.setdefault((setor, quadra, logr, num), []).append(geo)
-                if num.isdigit():
-                    por_rua.setdefault((setor, quadra, logr), []).append((int(num), geo))
-    return por_lote, por_endereco, por_rua, por_quadra
+            _indexar(json.load(fh)["lotes"], setor, indices, triplas)
+    return indices
 
 
 def _do_lote(geo, nivel):

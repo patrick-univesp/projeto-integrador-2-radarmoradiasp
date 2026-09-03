@@ -34,6 +34,12 @@ class Transacao(models.Model):
     qualidade = models.SmallIntegerField(default=0, db_index=True)
     flag_cadastro_defasado = models.BooleanField(default=False)
 
+    # Mês/ano em que a guia foi paga (o nome da aba mensal da planilha) — não é o
+    # do negócio (esse é data_transacao). É a chave da carga: recarregar um mês
+    # substitui só as linhas daquele mes_guia+ano.
+    ano_guia = models.SmallIntegerField(null=True)
+    mes_guia = models.SmallIntegerField(null=True)
+
     class Meta:
         verbose_name = "transação"
         verbose_name_plural = "transações"
@@ -41,6 +47,7 @@ class Transacao(models.Model):
             models.Index(fields=["lat", "lon"], name="radar_trans_lat_lon"),
             models.Index(fields=["distrito", "ano_transacao"], name="radar_trans_distrito_ano"),
             models.Index(fields=["bairro_norm", "ano_transacao"], name="radar_trans_bairro_ano"),
+            models.Index(fields=["ano_guia", "mes_guia"], name="radar_trans_guia"),
         ]
 
     def __str__(self):

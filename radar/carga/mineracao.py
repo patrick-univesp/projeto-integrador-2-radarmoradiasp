@@ -42,9 +42,10 @@ _USOS_CADASTRO_FRACO = frozenset((0, 70, 71, 72, 73, 74, 83))
 
 
 def _razao(a, b):
-    """``a / b``, ou ``None`` se ``b`` é nulo, zero ou negativo — um zero
-    contamina a mediana exibida na tela."""
-    if a is None or b is None or b <= 0:
+    """``a / b``, ou ``None`` se algum lado é nulo ou não-positivo. Sem
+    numerador positivo não há preço a calcular (base de cálculo zerada é linha
+    defeituosa, não R$ 0/m²); um zero aqui contaminaria a mediana da tela."""
+    if a is None or b is None or a <= 0 or b <= 0:
         return None
     return a / b
 
