@@ -5,8 +5,8 @@ resto do produto.
 
 > **Escopo desta doc:** só o modelo `Transacao` e a migration `0001_initial`. As
 > regras que preenchem os campos derivados estão em
-> [`carga-mineracao.md`](carga-mineracao.md); a referência de geocodificação é
-> descrita junto da carga de dados.
+> [`carga-mineracao.md`](carga-mineracao.md); a geocodificação (`lat`, `lon`,
+> `geo_nivel`, `distrito`), em [`referencia-geo.md`](referencia-geo.md).
 
 ---
 

@@ -6,8 +6,10 @@ documento cobre a **lógica pura** que transforma uma linha da planilha nos camp
 modelo `Transacao` — as funções em `radar/carga/`.
 
 > **Escopo:** `radar/carga/{coercao,normalizacao,grafias_bairro,mineracao}.py`. Nada
-> de I/O, banco ou Django — a costura com o `openpyxl` e o `bulk_create` é a carga em
-> si (issue #03). O esquema de destino está em [`modelo-transacao.md`](modelo-transacao.md).
+> de I/O, banco ou Django — a costura com o `openpyxl` e o `bulk_create` é o comando
+> de carga em si. O `lat`/`lon`/`distrito` vêm de um *lookup* separado
+> ([`referencia-geo.md`](referencia-geo.md)). O esquema de destino está em
+> [`modelo-transacao.md`](modelo-transacao.md).
 
 ---
 
@@ -112,7 +114,7 @@ coeridos, devolve os derivados.
 | `linha_deslocada(situacao_bruta, financ_bruto)` | `True` quando um campo de texto veio como data/número — colunas escorregaram na planilha |
 | `valor_inconsistente(base, valor, vvr_proporcional)` | `base ≠ max(declarado, VVR proporcional)` (tolerância R$ 1) — quase sempre base zerada com valor declarado |
 | `qualidade(deslocada, inconsistente)` | `1·deslocada + 2·inconsistente` → `0` ok · `1` · `2` · `3`. **`≠ 0` sai do cálculo por padrão** |
-| `cadastro_defasado(natureza, financ, proporcao, uso_cod)` | `True` quando o IPTU não acompanhou a realidade (compra e venda + financiamento habitacional + proporção pequena + `uso` de terreno/institucional). **Não reclassifica — só marca.** Detalhe e casos reais em [`modelo-transacao.md`](modelo-transacao.md), §5 |
+| `cadastro_defasado(natureza, financ, proporcao, uso_cod)` | `True` quando o IPTU não acompanhou a realidade (compra e venda + financiamento habitacional + proporção pequena + `uso` de terreno/institucional). **Não reclassifica — só marca.** Detalhe e casos reais em [`modelo-transacao.md`](modelo-transacao.md) |
 | `ano_transacao(data)` / `mes_transacao(data)` | do `date` |
 
 ### A trava de proporção, visualmente

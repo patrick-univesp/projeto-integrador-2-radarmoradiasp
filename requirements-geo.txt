@@ -1,0 +1,5 @@
+# Dependências SÓ do prefetch de geo (scripts/prefetch_geo.py), que roda OFFLINE
+# na máquina de quem mantém os dados. NUNCA entram em requirements.txt — o
+# servidor não faz point-in-polygon nem fala com o GeoSampa (ver
+# docs/referencia-geo.md e docs/local/arquitetura.md).
+shapely>=2.0
