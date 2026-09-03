@@ -99,8 +99,10 @@ a:hover { color: var(--accent-ink); text-decoration: underline; }
 }
 .marca:hover { color: var(--text); text-decoration: none; }
 .marca__sinal {
-  width: 12px; height: 12px;
-  background: var(--accent);
+  /* 30px, e não menos: abaixo disso os anéis do mark somem e sobra a silhueta.
+   * O canto arredondado vem do próprio SVG — nada de border-radius aqui, que
+   * arredondaria duas vezes e comeria a borda. */
+  width: 30px; height: 30px;
   flex: none;
 }
 .topo__acoes {
@@ -309,13 +311,26 @@ a:hover { color: var(--accent-ink); text-decoration: underline; }
   line-height: 1.6;
 }
 
+/* Ressalva: funcionou, mas com um porém — poucas vendas na região, dado
+ * antigo. Distinto de .erro, que é falha. */
 .aviso {
   margin-top: var(--e-6);
   padding: var(--e-4) var(--e-5);
-  background: var(--accent-soft);
+  background: var(--aviso-suave);
+  border: 1px solid var(--aviso-linha);
   border-radius: var(--raio-cartao);
   font-size: var(--t-apoio);
-  color: var(--accent-ink);
+  color: var(--aviso);
+}
+
+.erro {
+  margin-top: var(--e-6);
+  padding: var(--e-4) var(--e-5);
+  background: var(--erro-suave);
+  border: 1px solid var(--erro-linha);
+  border-radius: var(--raio-cartao);
+  font-size: var(--t-apoio);
+  color: var(--erro);
 }
 
 .simples { padding-block: var(--e-12); max-width: 620px; }

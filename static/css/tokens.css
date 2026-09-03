@@ -1,3 +1,16 @@
+/* Radar da Moradia SP — folha de tokens
+ *
+ * Valores autorados em OKLCH; o hex de cada par e o mesmo valor convertido,
+ * declarado antes para navegador sem suporte a oklch() — a segunda declaracao
+ * vence onde ha suporte e e descartada onde nao ha.
+ *
+ * TEMA UNICO, CLARO. A aplicacao nao tem tema escuro: nao existe bloco
+ * [data-theme="dark"] nem prefers-color-scheme, e o color-scheme:light abaixo
+ * faz o navegador desenhar controles de formulario no claro mesmo quando o
+ * sistema do usuario esta no escuro. Todo contraste citado aqui e medido
+ * contra o fundo claro.
+ */
+
 :root {
   color-scheme: light;
 
@@ -18,8 +31,8 @@
   --text:          oklch(0.235 0.020 55);
   --text-2:        #62554D;
   --text-2:        oklch(0.460 0.022 55);
-  --text-3:        #7D7169;
-  --text-3:        oklch(0.557 0.020 55);
+  --text-3:        #70645C;
+  --text-3:        oklch(0.512 0.020 55);   /* rótulo técnico — 5,4:1  [AJUSTE 1] */
 
   --accent:        #A14512;
   --accent:        oklch(0.505 0.135 45);
@@ -32,20 +45,40 @@
   --accent-on:     #FFFFFF;
   --accent-on:     oklch(1 0 0);
 
-  --r1:            #F7DEC8;
-  --r1:            oklch(0.915 0.040 62);
-  --r2:            #EBB690;
-  --r2:            oklch(0.815 0.080 56);
-  --r3:            #D7885A;
-  --r3:            oklch(0.700 0.115 50);
-  --r4:            #BD5F31;
-  --r4:            oklch(0.590 0.135 45);
-  --r5:            #953B17;
-  --r5:            oklch(0.470 0.130 40);
+  --r1:            #C9EAEE;
+  --r1:            oklch(0.915 0.035 205);
+  --r2:            #8BD0D8;
+  --r2:            oklch(0.815 0.070 205);
+  --r3:            #41B0BC;
+  --r3:            oklch(0.700 0.100 205);
+  --r4:            #0093A1;
+  --r4:            oklch(0.600 0.115 205);
+  --r5:            #006A7B;
+  --r5:            oklch(0.470 0.110 208);
 
   --r-ink-baixo:   var(--text);
   --r-ink-alto:    #FFFFFF;
   --r-ink-alto:    oklch(1 0 0);
+
+  /* ---- estados ----
+   * Erro: algo falhou (404, 500, 429 do limite de taxa, campo invalido).
+   * Aviso: funcionou, mas com ressalva (poucas vendas na regiao, dado antigo).
+   * O matiz de cada um foi escolhido para se afastar do terracota da marca:
+   * erro a 15 graus e aviso a 85, contra os 45 do --accent. Ainda assim, cor
+   * nunca carrega a mensagem sozinha — sempre acompanha texto. */
+  --erro:          #AB0032;
+  --erro:          oklch(0.460 0.200 15);   /* tinta — 7,2:1 sobre --bg */
+  --erro-suave:    #FFE8E8;
+  --erro-suave:    oklch(0.955 0.032 18);   /* fundo do bloco */
+  --erro-linha:    #C57D81;
+  --erro-linha:    oklch(0.666 0.090 16);   /* borda — 3,0:1 */
+
+  --aviso:         #724E00;
+  --aviso:         oklch(0.450 0.115 85);   /* tinta — 7,1:1 sobre --bg */
+  --aviso-suave:   #FEF1D0;
+  --aviso-suave:   oklch(0.960 0.045 88);
+  --aviso-linha:   #A88D56;
+  --aviso-linha:   oklch(0.656 0.080 85);   /* borda — 3,0:1 */
 
   --hatch:         #D9CFC7;
   --hatch:         oklch(0.860 0.016 62);
@@ -80,119 +113,6 @@
   --raio-atalho:   999px;
 }
 
-[data-theme="dark"] {
-  color-scheme: dark;
-
-  --bg:            #18110D;
-  --bg:            oklch(0.185 0.014 55);
-  --surface:       #231B15;
-  --surface:       oklch(0.230 0.017 55);
-  --surface-2:     #2D241D;
-  --surface-2:     oklch(0.268 0.019 55);
-  --surface-3:     #382C25;
-  --surface-3:     oklch(0.305 0.021 55);
-  --line:          #43362E;
-  --line:          oklch(0.345 0.022 55);
-  --line-strong:   #63544A;
-  --line-strong:   oklch(0.458 0.026 55);
-
-  --text:          #F6F1EC;
-  --text:          oklch(0.960 0.008 62);
-  --text-2:        #C0B6AE;
-  --text-2:        oklch(0.782 0.016 62);
-  --text-3:        #988E85;
-  --text-3:        oklch(0.652 0.018 62);
-
-  --accent:        #E8905E;
-  --accent:        oklch(0.735 0.125 50);
-  --accent-ink:    #FBBD94;
-  --accent-ink:    oklch(0.845 0.090 55);
-  --accent-soft:   #41261A;
-  --accent-soft:   oklch(0.300 0.045 45);
-  --accent-line:   #89543B;
-  --accent-line:   oklch(0.499 0.080 45);
-  --accent-on:     #18110D;
-  --accent-on:     oklch(0.185 0.014 55);
-
-  --r1:            #463423;
-  --r1:            oklch(0.340 0.038 62);
-  --r2:            #70482A;
-  --r2:            oklch(0.440 0.070 56);
-  --r3:            #A25E35;
-  --r3:            oklch(0.550 0.105 50);
-  --r4:            #D0774E;
-  --r4:            oklch(0.660 0.125 45);
-  --r5:            #F8A372;
-  --r5:            oklch(0.790 0.120 50);
-
-  --r-ink-baixo:   var(--text);
-  --r-ink-alto:    #18110D;
-  --r-ink-alto:    oklch(0.185 0.014 55);
-
-  --hatch:         #51443C;
-  --hatch:         oklch(0.398 0.022 55);
-
-  --shadow: 0 1px 2px rgba(0, 0, 0, .32), 0 10px 30px rgba(0, 0, 0, .38);
-  --shadow: 0 1px 2px oklch(0 0 0 / .32), 0 10px 30px oklch(0 0 0 / .38);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-
-    --bg:          #18110D;
-    --bg:          oklch(0.185 0.014 55);
-    --surface:     #231B15;
-    --surface:     oklch(0.230 0.017 55);
-    --surface-2:   #2D241D;
-    --surface-2:   oklch(0.268 0.019 55);
-    --surface-3:   #382C25;
-    --surface-3:   oklch(0.305 0.021 55);
-    --line:        #43362E;
-    --line:        oklch(0.345 0.022 55);
-    --line-strong: #63544A;
-    --line-strong: oklch(0.458 0.026 55);
-
-    --text:        #F6F1EC;
-    --text:        oklch(0.960 0.008 62);
-    --text-2:      #C0B6AE;
-    --text-2:      oklch(0.782 0.016 62);
-    --text-3:      #988E85;
-    --text-3:      oklch(0.652 0.018 62);
-
-    --accent:      #E8905E;
-    --accent:      oklch(0.735 0.125 50);
-    --accent-ink:  #FBBD94;
-    --accent-ink:  oklch(0.845 0.090 55);
-    --accent-soft: #41261A;
-    --accent-soft: oklch(0.300 0.045 45);
-    --accent-line: #89543B;
-    --accent-line: oklch(0.499 0.080 45);
-    --accent-on:   #18110D;
-    --accent-on:   oklch(0.185 0.014 55);
-
-    --r1:          #463423;
-    --r1:          oklch(0.340 0.038 62);
-    --r2:          #70482A;
-    --r2:          oklch(0.440 0.070 56);
-    --r3:          #A25E35;
-    --r3:          oklch(0.550 0.105 50);
-    --r4:          #D0774E;
-    --r4:          oklch(0.660 0.125 45);
-    --r5:          #F8A372;
-    --r5:          oklch(0.790 0.120 50);
-
-    --r-ink-baixo: var(--text);
-    --r-ink-alto:  #18110D;
-    --r-ink-alto:  oklch(0.185 0.014 55);
-
-    --hatch:       #51443C;
-    --hatch:       oklch(0.398 0.022 55);
-
-    --shadow: 0 1px 2px rgba(0, 0, 0, .32), 0 10px 30px rgba(0, 0, 0, .38);
-    --shadow: 0 1px 2px oklch(0 0 0 / .32), 0 10px 30px oklch(0 0 0 / .38);
-  }
-}
 
 @media (min-width: 768px) {
   :root { --margem-lateral: var(--e-12); }
@@ -205,3 +125,52 @@
     transition-duration: .01ms !important;
   }
 }
+
+/* =========================================================================
+ * AJUSTES EM RELAÇÃO AO CANVAS DE DESIGN
+ *
+ * Dois valores divergem do canvas, os dois por contraste medido, não por
+ * gosto. REVERTER QUALQUER UM REINTRODUZ UMA REPROVAÇÃO DE WCAG AA.
+ * Contexto completo em docs/local/interface.md §2 e §3.
+ *
+ * [AJUSTE 1] --text-3, tema claro: oklch(0.605) -> oklch(0.512)
+ *   O canvas media 3,69:1 sobre --bg e anotava "AA 3,4:1 (>=16px)". O limite
+ *   estava errado: a excecao de 3:1 do WCAG vale para texto grande — >=24px,
+ *   ou >=18,66px em negrito. O token e usado a 11px nos rotulos mono, onde a
+ *   exigencia e 4,5:1.
+ *   Um primeiro ajuste levou o valor a 0.557, que da 4,48:1 — no limite e sem
+ *   folga nenhuma. Consequencia medida: QUALQUER preenchimento visivel atras
+ *   de um texto em --text-3 reprovava (a silhueta de Sao Paulo derrubou para
+ *   3,99:1). O valor atual, 0.512, foi escolhido para passar sobre a superficie
+ *   mais forte do sistema, e nao so sobre o fundo:
+ *       sobre --bg .................. 5,42:1
+ *       sobre a silhueta (@0.75) .... 4,83:1
+ *       sobre --surface-3 cheio ..... 4,64:1
+ *   Ou seja, nenhuma superficie do sistema consegue derruba-lo abaixo de AA.
+ *   Continua mais leve que --text-2 (6,80:1 sobre --bg), entao a hierarquia
+ *   dos tres niveis de tinta se mantem.
+ *   (A aplicacao nao tem tema escuro; ver o cabecalho do arquivo.)
+ *
+ * [AJUSTE 2] --accent-line: oklch(0.800) -> oklch(0.661)
+ *   E o anel de foco de teclado, e o proprio design diz "nunca removido".
+ *   Media 1,81:1; o WCAG 1.4.11 exige 3:1 para indicador de foco. Um anel que
+ *   existe mas nao se percebe e acessibilidade de teclado falhando em
+ *   silencio. O valor atual da 3,01:1.
+ *
+ * [AJUSTE 3] Rampa movida de ~45 graus (terracota) para ~205 (frio).
+ *   No canvas, --accent e a rampa tinham o MESMO matiz e o MESMO croma:
+ *     --accent oklch(0.505 0.135 45)  vs  --r4 oklch(0.590 0.135 45) = 1,43:1
+ *   Na pagina da regiao os dois aparecem juntos — o mapa pintado pela rampa e
+ *   o botao pelo accent —, e um distrito de valor alto ficava com a cor de um
+ *   elemento clicavel. A regra do proprio design, "a rampa nunca serve a
+ *   hierarquia de interface", deixava de ser verificavel na tela.
+ *   Agora ha 160 graus de matiz entre as duas: terracota significa uma coisa
+ *   so (isto e clicavel) e frio significa magnitude.
+ *   Escala verificada: separacao entre degraus vizinhos de 1,36 a 1,69, e
+ *   toda faixa tem uma tinta que passa AA (escura ate r4, branca no r5).
+ *
+ * [AJUSTE 4] Adicionados --erro e --aviso (com -suave e -linha).
+ *   Nao existiam no canvas e sao necessarios para 404, 500, o 429 do limite de
+ *   taxa (#07) e o aviso de poucas vendas na regiao (#09). Ver o comentario na
+ *   propria declaracao, acima.
+ * ========================================================================= */

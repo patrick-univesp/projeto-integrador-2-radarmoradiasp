@@ -6,6 +6,23 @@
   <title>{% block titulo %}Radar da Moradia SP{% endblock %}</title>
   <meta name="description" content="{% block descricao %}Quanto se pagou de verdade por metro quadrado em São Paulo, a partir das guias de ITBI pagas à Prefeitura.{% endblock %}">
 
+  <link rel="icon" href="{% static 'img/radar-sp.svg' %}" type="image/svg+xml">
+  <link rel="icon" href="{% static 'img/radar-sp-32.png' %}" sizes="32x32" type="image/png">
+  <link rel="icon" href="{% static 'img/radar-sp-16.png' %}" sizes="16x16" type="image/png">
+  <link rel="apple-touch-icon" href="{% static 'img/radar-sp-180.png' %}">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Radar da Moradia SP">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:title" content="{% block og_titulo %}Radar da Moradia SP{% endblock %}">
+  <meta property="og:description" content="{% block og_descricao %}O preço que o comprador pagou, não o que o vendedor pede.{% endblock %}">
+  <meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'img/og-image.png' %}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Radar da Moradia SP — o preço que o comprador pagou, não o que o vendedor pede.">
+  <meta name="twitter:card" content="summary_large_image">
+
   <link rel="preload" href="{% static 'fonts/IBMPlexSans-Regular.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
@@ -17,7 +34,7 @@
   <header class="topo">
     <div class="container topo__linha">
       <a class="marca" href="{% url 'radar:inicio' %}">
-        <span class="marca__sinal" aria-hidden="true"></span>
+        <img class="marca__sinal" src="{% static 'img/radar-sp.svg' %}" alt="" width="30" height="30">
         Radar da Moradia SP
       </a>
       <div class="topo__acoes">
