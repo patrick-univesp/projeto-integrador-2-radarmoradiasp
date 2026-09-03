@@ -269,29 +269,8 @@ main {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-height: calc(100dvh - 65px - 58px);
 }
 .hero-area > .container { position: relative; z-index: 1; }
-
-.silhueta {
-  position: absolute;
-  top: var(--e-8);
-  bottom: var(--e-4);
-  left: 0;
-  right: 0;
-  z-index: 0;
-  background: var(--surface-3);
-  pointer-events: none;
-  -webkit-mask-image: url("../img/silhueta-sp.svg");
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: contain;
-  -webkit-mask-position: center center;
-  mask-image: url("../img/silhueta-sp.svg");
-  mask-repeat: no-repeat;
-  mask-size: contain;
-  mask-position: center center;
-  opacity: 0.75;
-}
 
 .fundo-cadastral {
   position: absolute;
@@ -300,7 +279,7 @@ main {
   height: 100%;
   z-index: 0;
   pointer-events: none;
-  background-image: url("../img/planta-cadastral.jpg");
+  background-image: url("../img/planta-cadastral.webp");
   background-position: center center;
   background-size: cover;
   background-repeat: no-repeat;
@@ -318,10 +297,12 @@ main {
   font-size: var(--t-rotulo);
   letter-spacing: .12em;
   text-transform: uppercase;
-  color: var(--text-2);
+  /* --text, e não --text-2: medido sobre a parte mais escura do mapa, o
+   * --text-2 dá 3,3:1 e o --text-2 com opacity dá 2,5:1 — os dois reprovam AA.
+   * Sem opacity, --text dá 7,6:1 aqui e 10,0:1 nos cantos. */
+  color: var(--text);
   pointer-events: none;
   user-select: none;
-  opacity: 0.80;
   display: flex;
   align-items: center;
   gap: var(--e-2);
@@ -356,23 +337,20 @@ main {
   font-size: var(--t-rotulo);
   letter-spacing: .08em;
   text-transform: uppercase;
-  color: var(--text-2);
+  color: var(--text);      /* mesmo motivo do .hero__lateral */
   pointer-events: none;
   user-select: none;
-  opacity: 0.80;
 }
 .hero__coordenada--superior { top: var(--e-4); }
 .hero__coordenada--inferior { bottom: var(--e-4); }
 
 @media (max-width: 719px) {
-  .hero-area {
-    min-height: auto;
-  }
   .hero__coordenada,
   .hero__lateral {
     display: none;
   }
   .fundo-cadastral {
+    background-image: url("../img/planta-cadastral-800.webp");
     opacity: 0.10;
     -webkit-mask-image: none;
     mask-image: none;
@@ -446,10 +424,6 @@ main {
 }
 
 @media (min-width: 1024px) {
-  .silhueta {
-    top: var(--e-12);
-    bottom: var(--e-6);
-  }
   .hero {
     padding-block: 88px 64px;
     text-align: center;

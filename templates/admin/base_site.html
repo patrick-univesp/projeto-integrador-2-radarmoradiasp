@@ -1,0 +1,20 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% comment %}
+  Não estende "admin/base_site.html": templates/ vem antes de contrib.admin na
+  busca (TEMPLATES.DIRS), então extender o próprio caminho causa recursão
+  infinita. Estende "admin/base.html" direto e reimplementa os dois blocos que
+  o base_site.html original define — é só isso que ele tem.
+{% endcomment %}
+
+{% block title %}{{ title }} | {{ site_title|default:_("Django site admin") }}{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_("Django administration") }}</a></h1>
+{% endblock %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/admin-marca.css' %}">
+{% endblock %}

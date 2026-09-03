@@ -1,0 +1,32 @@
+/* Toque de marca no admin do Django — não um reskin.
+ *
+ * O admin do Django é bom no que faz (grade densa, filtros, ações em lote) e
+ * tem uma gramática de interface própria, incompatível com os componentes do
+ * site público. Recriar aqui os tokens.css seria brigar com o framework para
+ * reconstruir pior o que ele já resolve. Isto troca só as cores, pelas
+ * variáveis que o próprio admin.css do Django expõe desde a versão 3.2 —
+ * nenhum seletor é sobrescrito, só a paleta.
+ *
+ * Cor fixa em hex, não var(--accent): o admin não carrega tokens.css, e não
+ * deveria — são páginas de um público diferente (quem opera, não quem
+ * consulta). Se --accent mudar em tokens.css, atualizar aqui também. */
+:root {
+  --primary: #A14512;
+  --secondary: #782C07;
+  --accent: #EFB845;
+
+  --header-bg: var(--secondary);
+  --header-branding-color: var(--accent);
+
+  --link-fg: #A14512;
+  --link-hover-color: #782C07;
+  --link-selected-fg: var(--secondary);
+
+  --button-bg: var(--secondary);
+  --button-hover-bg: #5c2205;
+  --default-button-bg: #5c2205;
+  --default-button-hover-bg: var(--secondary);
+
+  --object-tools-bg: var(--secondary);
+  --object-tools-hover-bg: #5c2205;
+}
