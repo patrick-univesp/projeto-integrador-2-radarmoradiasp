@@ -43,3 +43,6 @@ id_*
 .github/hooks/
 .github/skills/
 skills-lock.json
+
+# Planilhas de origem e material de apoio (fora do repositorio)
+tmp/
