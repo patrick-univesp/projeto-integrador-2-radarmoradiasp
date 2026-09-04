@@ -43,6 +43,7 @@ id_*
 .github/hooks/
 .github/skills/
 skills-lock.json
+CLAUDE.md
 
 # Planilhas de origem e material de apoio (fora do repositorio)
 tmp/

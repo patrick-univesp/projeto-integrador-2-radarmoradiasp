@@ -138,9 +138,9 @@ _REGIOES = (
 POR_SLUG = {r.slug: r for r in _REGIOES}
 POR_DISTRITO = {r.distrito: r for r in _REGIOES}
 
-assert len(POR_SLUG) == len(POR_DISTRITO) == len(_REGIOES) == 96, (
-    "slug ou distrito duplicado no registro"
-)
+# assert some em bytecode otimizado (-O) — este invariante tem que valer sempre.
+if len(POR_SLUG) != 96 or len(POR_DISTRITO) != 96 or len(_REGIOES) != 96:
+    raise ValueError("slug ou distrito duplicado no registro de regiões")
 
 # Apelidos de busca: nomes populares que não são distrito oficial, slug -> slug
 # canônico. Registrado em #06 (nota da "nuvem de regiões" removida): Vila
