@@ -1,3 +1,5 @@
+# SERA ATUALIAZADA POS V0
+
 # Comando `carregar_itbi`
 
 `python manage.py carregar_itbi --arquivo <planilha.xlsx>` lê a planilha de guias de
@@ -39,16 +41,16 @@ roda poucas vezes por ano, compensa.
 
 ## Flags
 
-| Flag | Efeito |
-|---|---|
-| `--arquivo` | **obrigatório**, o `.xlsx` |
-| `--abas JAN-2026,FEV-2026` | só essas abas mensais (padrão: todas) |
-| `--blocos N` | tamanho do `bulk_create` (padrão 2000) |
-| `--limite N` | só as N primeiras linhas de cada aba (desenvolvimento) |
-| `--limpar` | apaga **tudo** antes |
-| `--substituir-mes` | apaga as linhas de cada `ano_guia`+`mes_guia` antes de reinserir — recarregar um mês não duplica |
-| `--sem-geo` | não resolve `lat`/`lon`/`distrito` (tudo `--`) — feedback rápido |
-| `--dry-run` | parseia, minera e valida sem gravar |
+| Flag                       | Efeito                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| `--arquivo`                | **obrigatório**, o `.xlsx`                                                                       |
+| `--abas JAN-2026,FEV-2026` | só essas abas mensais (padrão: todas)                                                            |
+| `--blocos N`               | tamanho do `bulk_create` (padrão 2000)                                                           |
+| `--limite N`               | só as N primeiras linhas de cada aba (desenvolvimento)                                           |
+| `--limpar`                 | apaga **tudo** antes                                                                             |
+| `--substituir-mes`         | apaga as linhas de cada `ano_guia`+`mes_guia` antes de reinserir — recarregar um mês não duplica |
+| `--sem-geo`                | não resolve `lat`/`lon`/`distrito` (tudo `--`) — feedback rápido                                 |
+| `--dry-run`                | parseia, minera e valida sem gravar                                                              |
 
 `carregar(arquivo, abas, ..., progresso=callback)` é uma função separada do
 `Command` — é ela que a tela de admin reusa por trás do upload assíncrono (abaixo).
@@ -85,7 +87,7 @@ flowchart LR
 
 ## Proteção do login do admin
 
-O login é protegido por **`django-axes`** (5 tentativas, *cooloff* de 30 min, trava
+O login é protegido por **`django-axes`** (5 tentativas, _cooloff_ de 30 min, trava
 por `[usuário, ip]` e por `ip`), e o IP real vem do `CF-Connecting-IP` — atrás do
 túnel o `REMOTE_ADDR` é sempre `127.0.0.1` (`config/ip.py`). A sessão do admin em
 produção dura 8 h em vez das duas semanas padrão.
@@ -106,7 +108,7 @@ negócio, que vai de 1994 a 2026). `--substituir-mes` apaga por
 
 Na carga completa, **~1,7% das linhas ficam em `geo_nivel='--'`** (sem
 correspondência na referência). A cauda está no mês mais recente — a referência foi
-gerada de um *crawl* que ia até jun/2026, então quadras que só transacionaram em
+gerada de um _crawl_ que ia até jun/2026, então quadras que só transacionaram em
 julho ainda não estão nela. `scripts/prefetch_geo.py --refresh <setor>:<quadra>,...`
 preenche. As linhas `--` **entram no banco** (não são puladas) — só não têm ponto no
 mapa.

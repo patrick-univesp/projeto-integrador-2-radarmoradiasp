@@ -1,3 +1,5 @@
+# SERA ATUALIAZADA POS V0
+
 # Carga: coerção, normalização e mineração
 
 A carga de ITBI abre a **planilha crua** (`.xlsx`, 7 abas, 28 colunas lidas por
@@ -7,7 +9,7 @@ modelo `Transacao` — as funções em `radar/carga/`.
 
 > **Escopo:** `radar/carga/{coercao,normalizacao,grafias_bairro,mineracao}.py`. Nada
 > de I/O, banco ou Django — a costura com o `openpyxl` e o `bulk_create` é o comando
-> de carga em si. O `lat`/`lon`/`distrito` vêm de um *lookup* separado
+> de carga em si. O `lat`/`lon`/`distrito` vêm de um _lookup_ separado
 > ([`referencia-geo.md`](referencia-geo.md)). O esquema de destino está em
 > [`modelo-transacao.md`](modelo-transacao.md).
 
@@ -35,15 +37,15 @@ antes da carga existir.
 
 Uma célula do `openpyxl` chega como `int`, `float`, `str`, `datetime` ou `None`.
 
-| Função | Devolve | Trata |
-|---|---|---|
-| `para_texto(v)` | `str` | `strip`; `None`/vazio → `''` |
-| `para_numero(v)` | `float \| None` | número no formato **brasileiro** em texto (`'1.234,56'` → `1234.56`); texto não numérico → `None` |
-| `para_sql(v)` | `str \| None` | 11 dígitos com **zero à esquerda reconstruído** — a planilha traz o SQL como `int`, e `5202800061` é na verdade `05202800061` (setor 052) |
-| `para_cep(v)` | `str` | 8 dígitos, zero à esquerda; `''` se vazio ou 0 |
-| `para_numero_porta(v)` | `str` | sem zeros à esquerda; **`0` e `99999` são o código de "sem numeração"** → `''`; preserva `'71A'` |
-| `para_data(v)` | `date \| None` | no `.xlsx` já vem `datetime`; fallback de texto para outras origens |
-| `mes_guia(nome_aba)` | `int \| None` | `'MAR-2026'` → `3` — o mês do **pagamento da guia**, não o do negócio |
+| Função                 | Devolve         | Trata                                                                                                                                     |
+| ---------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `para_texto(v)`        | `str`           | `strip`; `None`/vazio → `''`                                                                                                              |
+| `para_numero(v)`       | `float \| None` | número no formato **brasileiro** em texto (`'1.234,56'` → `1234.56`); texto não numérico → `None`                                         |
+| `para_sql(v)`          | `str \| None`   | 11 dígitos com **zero à esquerda reconstruído** — a planilha traz o SQL como `int`, e `5202800061` é na verdade `05202800061` (setor 052) |
+| `para_cep(v)`          | `str`           | 8 dígitos, zero à esquerda; `''` se vazio ou 0                                                                                            |
+| `para_numero_porta(v)` | `str`           | sem zeros à esquerda; **`0` e `99999` são o código de "sem numeração"** → `''`; preserva `'71A'`                                          |
+| `para_data(v)`         | `date \| None`  | no `.xlsx` já vem `datetime`; fallback de texto para outras origens                                                                       |
+| `mes_guia(nome_aba)`   | `int \| None`   | `'MAR-2026'` → `3` — o mês do **pagamento da guia**, não o do negócio                                                                     |
 
 ---
 
@@ -78,9 +80,9 @@ Três decisões, tomadas com o `scripts/analisar_bairros.py` sobre a extração 
 - **C — tabela de grafias aglutinadas** (`grafias_bairro.py`): 9 pares semeados
   (`ITAIMBIBI`, `VLFORMOSA`, `CASAVERDE`…), cresce à mão via o script.
 
-| `bairro` | grafias distintas |
-|---|---|
-| cruas | **8.368** |
+| `bairro`                             | grafias distintas  |
+| ------------------------------------ | ------------------ |
+| cruas                                | **8.368**          |
 | após `normalizar` + descarte de lixo | **7.148** (−14,6%) |
 
 O campo continua alto-cardinalidade — é o "bairro" informal do IPTU, não os 96
@@ -89,11 +91,11 @@ chave familiar que o usuário digita, com match exato após normalizar.
 
 ### API
 
-| Função | Uso |
-|---|---|
-| `normalizar(texto)` | acento/caixa/pontuação/abreviação/tabela. Serve logradouro e bairro. `''` para vazio. |
-| `eh_lixo_de_bairro(normalizado)` | `True` para `TORRE 1`, `2 SUBSOLO`… |
-| `normalizar_bairro(texto)` | `normalizar` + esvaziar o lixo. **É o que a carga grava em `bairro_norm`.** |
+| Função                           | Uso                                                                                   |
+| -------------------------------- | ------------------------------------------------------------------------------------- |
+| `normalizar(texto)`              | acento/caixa/pontuação/abreviação/tabela. Serve logradouro e bairro. `''` para vazio. |
+| `eh_lixo_de_bairro(normalizado)` | `True` para `TORRE 1`, `2 SUBSOLO`…                                                   |
+| `normalizar_bairro(texto)`       | `normalizar` + esvaziar o lixo. **É o que a carga grava em `bairro_norm`.**           |
 
 ---
 
@@ -102,20 +104,20 @@ chave familiar que o usuário digita, com match exato após normalizar.
 Portado de `03_enriquecer.py` do projeto de referência. Recebe os campos crus já
 coeridos, devolve os derivados.
 
-| Função | Regra |
-|---|---|
-| `grupo_de_uso(uso_cod)` | os ~37 códigos `uso` do IPTU em 11 grupos legíveis; código fora da tabela (a planilha tem `73` e `91`) → `"Outros"` |
-| `rs_m2_construido(base, area, proporcao)` | `base / area`, **só com `proporcao ≥ 99%`**; `area = 0` (terreno) → `None`. **Nunca `0`** — um zero contamina a mediana |
-| `rs_m2_terreno(base, area_terreno, proporcao, fracao_ideal)` | idem + `fracao_ideal ≥ 0,99` (num apartamento a área do lote é a do condomínio inteiro) |
-| `agio(valor, vvr_proporcional, proporcao)` | `valor / vvr`, **só com `proporcao ≥ 5%`** — abaixo disso a razão explode |
-| `itbi_estimado(base)` | `base × 0,03` — alíquota nominal, sem isenções |
-| `cod_natureza(texto)` | `'1.Compra e venda'` → `1` |
-| `idade(acc)` | `2026 − acc`, ou `None` se implausível |
-| `linha_deslocada(situacao_bruta, financ_bruto)` | `True` quando um campo de texto veio como data/número — colunas escorregaram na planilha |
-| `valor_inconsistente(base, valor, vvr_proporcional)` | `base ≠ max(declarado, VVR proporcional)` (tolerância R$ 1) — quase sempre base zerada com valor declarado |
-| `qualidade(deslocada, inconsistente)` | `1·deslocada + 2·inconsistente` → `0` ok · `1` · `2` · `3`. **`≠ 0` sai do cálculo por padrão** |
-| `cadastro_defasado(natureza, financ, proporcao, uso_cod)` | `True` quando o IPTU não acompanhou a realidade (compra e venda + financiamento habitacional + proporção pequena + `uso` de terreno/institucional). **Não reclassifica — só marca.** Detalhe e casos reais em [`modelo-transacao.md`](modelo-transacao.md) |
-| `ano_transacao(data)` / `mes_transacao(data)` | do `date` |
+| Função                                                       | Regra                                                                                                                                                                                                                                                      |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `grupo_de_uso(uso_cod)`                                      | os ~37 códigos `uso` do IPTU em 11 grupos legíveis; código fora da tabela (a planilha tem `73` e `91`) → `"Outros"`                                                                                                                                        |
+| `rs_m2_construido(base, area, proporcao)`                    | `base / area`, **só com `proporcao ≥ 99%`**; `area = 0` (terreno) → `None`. **Nunca `0`** — um zero contamina a mediana                                                                                                                                    |
+| `rs_m2_terreno(base, area_terreno, proporcao, fracao_ideal)` | idem + `fracao_ideal ≥ 0,99` (num apartamento a área do lote é a do condomínio inteiro)                                                                                                                                                                    |
+| `agio(valor, vvr_proporcional, proporcao)`                   | `valor / vvr`, **só com `proporcao ≥ 5%`** — abaixo disso a razão explode                                                                                                                                                                                  |
+| `itbi_estimado(base)`                                        | `base × 0,03` — alíquota nominal, sem isenções                                                                                                                                                                                                             |
+| `cod_natureza(texto)`                                        | `'1.Compra e venda'` → `1`                                                                                                                                                                                                                                 |
+| `idade(acc)`                                                 | `2026 − acc`, ou `None` se implausível                                                                                                                                                                                                                     |
+| `linha_deslocada(situacao_bruta, financ_bruto)`              | `True` quando um campo de texto veio como data/número — colunas escorregaram na planilha                                                                                                                                                                   |
+| `valor_inconsistente(base, valor, vvr_proporcional)`         | `base ≠ max(declarado, VVR proporcional)` (tolerância R$ 1) — quase sempre base zerada com valor declarado                                                                                                                                                 |
+| `qualidade(deslocada, inconsistente)`                        | `1·deslocada + 2·inconsistente` → `0` ok · `1` · `2` · `3`. **`≠ 0` sai do cálculo por padrão**                                                                                                                                                            |
+| `cadastro_defasado(natureza, financ, proporcao, uso_cod)`    | `True` quando o IPTU não acompanhou a realidade (compra e venda + financiamento habitacional + proporção pequena + `uso` de terreno/institucional). **Não reclassifica — só marca.** Detalhe e casos reais em [`modelo-transacao.md`](modelo-transacao.md) |
+| `ano_transacao(data)` / `mes_transacao(data)`                | do `date`                                                                                                                                                                                                                                                  |
 
 ### A trava de proporção, visualmente
 
@@ -129,7 +131,7 @@ flowchart TD
     N -. "0 puxaria a mediana da região para baixo" .-> W(["por isso None, nunca 0"])
 ```
 
-Sem a trava, o R$/m² de terreno medido na base dá **R$ 73/m²** em vez de **R$ 1.595**.
+Sem a trava, o R$/m² de terreno medido na base dá **R$ 73/m²** em vez de **R$ 1.595\*\*.
 
 Constantes: `ALIQUOTA_ITBI = 0.03`, `PROPORCAO_MIN_METRICA = 99.0`,
 `FRACAO_MIN_TERRENO = 0.99`, `PROPORCAO_MIN_AGIO = 5.0`, `PROPORCAO_PEQUENA = 5.0`,
@@ -139,10 +141,10 @@ Constantes: `ALIQUOTA_ITBI = 0.03`, `PROPORCAO_MIN_METRICA = 99.0`,
 
 ## Como estender
 
-| Mudança | Onde | Cuidado |
-|---|---|---|
-| Novo par de grafia de bairro | `grafias_bairro.py` (chave já normalizada) | rodar `scripts/analisar_bairros.py` para achar candidatos; a decisão é humana |
-| Novo padrão de lixo de complemento | regex `_LIXO_BAIRRO` em `normalizacao.py` | manter ancorada (`^…$`); conferir que nenhum bairro real casa |
-| Novo código `uso` num grupo | `_GRUPOS_USO` em `mineracao.py` | |
-| Mudar um limiar de métrica | as constantes de `mineracao.py` | **obriga a recarregar o banco** — a métrica já está gravada nas linhas |
-| Nova abreviação | `_ABREVIACOES` em `normalizacao.py` | age palavra a palavra; não separa forma colada (isso é a tabela de grafias) |
+| Mudança                            | Onde                                       | Cuidado                                                                       |
+| ---------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------- |
+| Novo par de grafia de bairro       | `grafias_bairro.py` (chave já normalizada) | rodar `scripts/analisar_bairros.py` para achar candidatos; a decisão é humana |
+| Novo padrão de lixo de complemento | regex `_LIXO_BAIRRO` em `normalizacao.py`  | manter ancorada (`^…$`); conferir que nenhum bairro real casa                 |
+| Novo código `uso` num grupo        | `_GRUPOS_USO` em `mineracao.py`            |                                                                               |
+| Mudar um limiar de métrica         | as constantes de `mineracao.py`            | **obriga a recarregar o banco** — a métrica já está gravada nas linhas        |
+| Nova abreviação                    | `_ABREVIACOES` em `normalizacao.py`        | age palavra a palavra; não separa forma colada (isso é a tabela de grafias)   |
