@@ -1,0 +1,111 @@
+/* Radar da Moradia SP — página da região: valor típico, faixa e confiança */
+
+.regiao {
+  padding-block: var(--e-6) var(--e-12);
+  max-width: 640px;
+}
+
+.regiao__zona { margin-bottom: var(--e-2); }
+
+.regiao__nome {
+  font-size: var(--t-titulo);
+  font-weight: var(--peso-forte);
+  letter-spacing: -.015em;
+  color: var(--text);
+}
+
+.regiao__rotulo {
+  margin-top: var(--e-6);
+  font-size: var(--t-apoio);
+  font-weight: var(--peso-forte);
+  color: var(--text-2);
+}
+.regiao__rotulo-discreto {
+  font-weight: var(--peso-normal);
+  color: var(--text-3);
+}
+
+.regiao__numero {
+  margin-top: var(--e-1);
+  font-size: var(--t-numero);
+  font-weight: var(--peso-numero);
+  letter-spacing: -.02em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+.regiao__unidade {
+  margin-left: var(--e-1);
+  font-size: 1.25rem;
+  font-weight: var(--peso-forte);
+  color: var(--text-2);
+}
+
+.faixa { margin-top: var(--e-6); }
+.faixa__trilho {
+  position: relative;
+  height: 8px;
+  border-radius: var(--raio-atalho);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+}
+.faixa__marcador {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  box-shadow: var(--shadow);
+}
+.faixa__rotulos {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--e-2);
+  margin-top: var(--e-2);
+  font-size: var(--t-apoio);
+  color: var(--text-2);
+}
+.faixa__rotulos-meio {
+  flex: 1;
+  text-align: center;
+  color: var(--text-3);
+}
+@media (max-width: 479px) {
+  .faixa__rotulos-meio { display: none; }
+}
+
+.regiao__confianca {
+  margin-top: var(--e-3);
+  font-size: var(--t-apoio);
+  color: var(--text-3);
+}
+
+.regiao__ressalvas {
+  margin-top: var(--e-8);
+  padding-top: var(--e-6);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  font-size: .8125rem;
+  color: var(--text-3);
+  line-height: 1.6;
+}
+
+.regiao__vazio {
+  margin-top: var(--e-6);
+  padding: var(--e-5);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--raio-cartao);
+  color: var(--text-2);
+}
+
+@media (min-width: 720px) {
+  .regiao { padding-block: var(--e-8) var(--e-12); }
+  .regiao__nome { font-size: 2.25rem; }
+  .regiao__numero { font-size: 4rem; }
+}

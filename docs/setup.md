@@ -184,7 +184,7 @@ repositório.
 | ----------------------------------------- | ----------------------------------------------------------------------- |
 | `http://localhost:8000/`                  | Página inicial (busca por região).                                      |
 | `http://localhost:8000/buscar/?q=<termo>` | Busca — página "em breve" enquanto a fase 2 não fecha.                  |
-| `http://localhost:8000/regiao/<slug>/`    | Página da região — "em breve" (fase 3), mas o `<slug>` já é validado contra as 96 regiões: inexistente dá 404, apelido redireciona (ex.: `vila-madalena` → `pinheiros`). |
+| `http://localhost:8000/regiao/<slug>/`    | Página da região: valor típico (mediana de R$/m²), faixa de preços e confiança da amostra. `<slug>` validado contra as 96 regiões: inexistente dá 404, apelido redireciona (ex.: `vila-madalena` → `pinheiros`). |
 | `http://localhost:8000/entrar/`           | Responde **404** hoje — placeholder, ainda sem autenticação de usuário. |
 | `http://localhost:8000/admin/`            | Painel do Django. **Login protegido por `django-axes`.**                |
 

@@ -1,7 +1,10 @@
+from decimal import Decimal
+
 from django.http import Http404, HttpResponsePermanentRedirect
 from django.shortcuts import render
 from django.urls import reverse
 
+from radar.estatisticas import estatisticas_regiao
 from radar.models import Transacao
 from radar.regioes import APELIDOS, POR_SLUG
 
@@ -13,6 +16,15 @@ _MESES = (
     "janeiro", "fevereiro", "março", "abril", "maio", "junho",
     "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 )
+
+
+def _rotular_periodo(ano_ini, mes_ini, ano_fim, mes_fim):
+    """"janeiro de 2026" / "janeiro a julho de 2026" / "novembro de 2025 a março de 2026"."""
+    if ano_ini == ano_fim and mes_ini == mes_fim:
+        return f"{_MESES[mes_ini - 1]} de {ano_ini}"
+    if ano_ini == ano_fim:
+        return f"{_MESES[mes_ini - 1]} a {_MESES[mes_fim - 1]} de {ano_fim}"
+    return f"{_MESES[mes_ini - 1]} de {ano_ini} a {_MESES[mes_fim - 1]} de {ano_fim}"
 
 
 def _resumo_da_base():
@@ -27,24 +39,29 @@ def _resumo_da_base():
         .values_list("ano_guia", "mes_guia")
     )
     primeiro, ultimo = guias.first(), guias.last()
-
-    if not primeiro:
-        periodo = ""
-    elif primeiro == ultimo:
-        periodo = f"{_MESES[primeiro[1] - 1]} de {primeiro[0]}"
-    elif primeiro[0] == ultimo[0]:
-        periodo = f"{_MESES[primeiro[1] - 1]} a {_MESES[ultimo[1] - 1]} de {ultimo[0]}"
-    else:
-        periodo = (
-            f"{_MESES[primeiro[1] - 1]} de {primeiro[0]} a "
-            f"{_MESES[ultimo[1] - 1]} de {ultimo[0]}"
-        )
+    periodo = _rotular_periodo(primeiro[0], primeiro[1], ultimo[0], ultimo[1]) if primeiro else ""
 
     return {
         "n_vendas": total,
         "total_vendas": f"{total:,}".replace(",", "."),
         "periodo": periodo,
     }
+
+
+def _formatar_rs(valor):
+    """"8.465" ou "8.465,50" — separador de milhar por ponto, duas casas só quando
+    o valor tem centavos de verdade (issue #09: "duas casas quando couber")."""
+    if valor is None:
+        return None
+    valor = Decimal(valor)
+    negativo = valor < 0
+    valor = abs(valor)
+    inteiro = int(valor)
+    texto = f"{inteiro:,}".replace(",", ".")
+    centavos = valor - inteiro
+    if centavos:
+        texto = f"{texto},{int((centavos * 100).to_integral_value()):02d}"
+    return f"-{texto}" if negativo else texto
 
 
 def inicio(request):
@@ -66,9 +83,9 @@ def busca(request):
         {
             "titulo": f"Busca por “{termo}”" if termo else "Busca",
             "mensagem": (
-                "A busca ainda não está ligada: a base de transações do ITBI não foi "
-                "carregada neste ambiente. Esta tela existe para o caminho da interface "
-                "ficar completo enquanto o restante é construído."
+                "A busca ainda não está ligada: falta o autocomplete que resolve um "
+                "termo digitado para uma região. Esta tela existe para o caminho da "
+                "interface ficar completo enquanto o restante é construído."
             ),
         },
     )
@@ -80,14 +97,36 @@ def regiao(request, slug):
     r = POR_SLUG.get(slug)
     if r is None:
         raise Http404(f"região {slug!r} não existe")
+
+    stats = estatisticas_regiao(Transacao.objects.filter(distrito_slug=slug))
+
+    mediana = stats["mediana_rs_m2"]
+    p25, p75 = stats["p25_rs_m2"], stats["p75_rs_m2"]
+    pos_mediana_pct = None
+    if mediana is not None and p75 != p25:
+        # String, não número: LANGUAGE_CODE="pt-br" localiza um float no template
+        # (ponto → vírgula), e "left: 50,0%" é CSS inválido.
+        pos_mediana_pct = f"{float((mediana - p25) / (p75 - p25)) * 100:.1f}"
+    elif mediana is not None:
+        pos_mediana_pct = "50.0"
+
     return render(
         request,
-        "radar/em_breve.html",
+        "radar/regiao.html",
         {
-            "titulo": r.nome,
-            "mensagem": (
-                "A página da região mostrará o valor típico do metro quadrado, a faixa "
-                "de preços e quantas vendas sustentam o número. Ainda não está pronta."
+            "regiao": r,
+            "stats": stats,
+            "mediana_fmt": _formatar_rs(mediana),
+            "p25_fmt": _formatar_rs(p25),
+            "p75_fmt": _formatar_rs(p75),
+            "pos_mediana_pct": pos_mediana_pct,
+            "periodo": (
+                _rotular_periodo(
+                    stats["periodo_inicio"].year, stats["periodo_inicio"].month,
+                    stats["periodo_fim"].year, stats["periodo_fim"].month,
+                )
+                if stats["periodo_inicio"]
+                else ""
             ),
         },
     )
