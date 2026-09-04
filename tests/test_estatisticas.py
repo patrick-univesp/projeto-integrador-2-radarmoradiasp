@@ -294,6 +294,20 @@ def test_serie_mensal_sem_transacao_devolve_lista_vazia():
 
 
 @pytest.mark.django_db
+def test_serie_mensal_limita_a_12_meses_do_mes_mais_recente():
+    """Achado em 05/09/2026: sem teto, uma região com dado só no início e no
+    fim da janela de ano_min (quase 2 anos) vira uma série de 2 pontos
+    separados por ~20 buracos — lê mal. A série corta pros últimos 12 meses
+    a partir do mês mais recente com dado, não do calendário real."""
+    _transacao(data_transacao=dt.date(2025, 1, 10), ano_transacao=2025)
+    _transacao(data_transacao=dt.date(2026, 1, 10), ano_transacao=2026)
+    serie, _ = serie_mensal(Transacao.objects.all(), ano_min=2025)
+    assert (serie[0]["ano"], serie[0]["mes"]) == (2025, 2)
+    assert (serie[-1]["ano"], serie[-1]["mes"]) == (2026, 1)
+    assert len(serie) == 12
+
+
+@pytest.mark.django_db
 def test_serie_mensal_respeita_o_mesmo_filtro_de_base():
     """Reusa transacoes_da_regiao — qualidade e uso_grupo residencial valem
     aqui igual valem pra mediana e pra lista (#10/#08), não é recorte à parte."""

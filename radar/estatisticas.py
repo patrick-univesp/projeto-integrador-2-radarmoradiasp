@@ -31,6 +31,14 @@ CONFIANCA_OK = "ok"
 # verdade.
 LIMIAR_MES_FRACO = 3
 
+# A série não olha pra trás mais que isso a partir do mês mais recente com
+# dado na região. ano_min (JANELA_ANOS_PADRAO) já pode abrir uma janela de
+# quase 2 anos — se a região só tem transação no começo e no fim dela, a
+# série vira 2 pontos reais separados por ~20 buracos, que lê mal (achado em
+# 05/09/2026: Moema "ficou estranha"). 12 meses é enough pra mostrar
+# tendência recente sem essa esparsidade.
+SERIE_JANELA_MESES = 12
+
 
 def _confianca(n_com_metrica: int) -> str:
     if n_com_metrica < LIMITE_CONFIANCA_INSUFICIENTE:
@@ -126,6 +134,12 @@ def _meses_entre(inicio, fim):
     return meses
 
 
+def _meses_atras(ano, mes, n):
+    """(ano, mes) menos n meses, como tupla (ano, mes)."""
+    absoluto = ano * 12 + (mes - 1) - n
+    return absoluto // 12, absoluto % 12 + 1
+
+
 def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=None):
     """Mediana mensal de R$/m² (RF8) — evolução do valor típico no tempo.
 
@@ -134,6 +148,12 @@ def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=None):
     diferentes). Mês sem transação que sustente uma mediana entra na série
     como buraco (``mediana_rs_m2=None``), nunca é pulado: emendar dois meses
     distantes como se fossem vizinhos mentiria sobre a evolução.
+
+    A série mostra no máximo os últimos ``SERIE_JANELA_MESES`` (12) meses,
+    contados a partir do mês mais recente com dado **nesta região** — não do
+    calendário real. ``ano_min`` pode abrir uma janela de quase 2 anos; sem
+    esse teto, uma região com dado só no início e no fim dela vira uma série
+    de 2 pontos separados por ~20 buracos.
     """
     base, ano_min = transacoes_da_regiao(queryset, uso_grupo=uso_grupo, ano_min=ano_min)
     pares = (
@@ -150,8 +170,9 @@ def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=None):
         return [], ano_min
 
     chaves = sorted(por_mes)
+    inicio = max(chaves[0], _meses_atras(*chaves[-1], SERIE_JANELA_MESES - 1))
     serie = []
-    for ano, mes in _meses_entre(chaves[0], chaves[-1]):
+    for ano, mes in _meses_entre(inicio, chaves[-1]):
         valores = por_mes.get((ano, mes), [])
         serie.append({
             "ano": ano,
