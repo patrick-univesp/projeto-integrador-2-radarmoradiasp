@@ -5,11 +5,12 @@
 Documentação do esquema criado em `radar/models.py` — o modelo que sustenta todo o
 resto do produto.
 
-> **Escopo desta doc:** o modelo `Transacao` (migrations `0001` + `0002`). As regras
+> **Escopo desta doc:** o modelo `Transacao` (migrations `0001`–`0006`). As regras
 > que preenchem os campos derivados estão em
 > [`carga-mineracao.md`](carga-mineracao.md); a geocodificação (`lat`, `lon`,
-> `geo_nivel`, `distrito`), em [`referencia-geo.md`](referencia-geo.md); o comando
-> que grava tudo, em [`carga-itbi.md`](carga-itbi.md).
+> `geo_nivel`, `distrito`), em [`referencia-geo.md`](referencia-geo.md); o registro
+> canônico de regiões (`distrito_slug`), em `radar/regioes.py`; o comando que grava
+> tudo, em [`carga-itbi.md`](carga-itbi.md).
 
 ---
 
@@ -72,7 +73,8 @@ flowchart LR
 | `bairro`                 | `CharField(120)`      | `blank=True`    | —                               | planilha           | grafia original do IPTU; **vem vazio em 40% das linhas**                                                                                            |
 | `bairro_norm`            | `CharField(120)`      | `blank=True`    | simples                         | derivado           | sem acento, caixa única, grafias unificadas — é a chave de busca por bairro; vazio quando `bairro` é vazio                                          |
 | `cep`                    | `CharField(8)`        | `blank=True`    | simples                         | planilha           | só dígitos, com zero à esquerda preservado; 99,998% preenchido                                                                                      |
-| `distrito`               | `CharField(60)`       | `blank=True`    | simples                         | geo                | um dos 96 distritos oficiais; vazio quando não há coordenada                                                                                        |
+| `distrito`               | `CharField(60)`       | `blank=True`    | simples                         | geo                | chave crua do dado (caixa alta, sem acento) — proveniência; nenhuma view filtra por ele                                                             |
+| `distrito_slug`          | `CharField(60)`       | `blank=True`    | simples + composto              | derivado           | slug do registro canônico (`radar/regioes.py`); é o que toda consulta usa para filtrar por região; `""` se o distrito não bate com nenhuma das 96   |
 | `lat`                    | `FloatField`          | `null=True`     | composto `(lat, lon)`           | geo                |                                                                                                                                                     |
 | `lon`                    | `FloatField`          | `null=True`     | composto `(lat, lon)`           | geo                |                                                                                                                                                     |
 | `geo_nivel`              | `CharField(2)`        | `blank=True`    | —                               | geo                | `T1` (lote exato) → `T4` (centroide da quadra, ~100 m), ou `--` sem coordenada                                                                      |
@@ -93,18 +95,19 @@ flowchart LR
 ## Índices
 
 São eles que substituem o PostgreSQL: não há `pg_trgm` nem `unaccent`, e a consulta
-espacial é _bounding box_, não geometria. Dez ao todo (`0001` + `0002`).
+espacial é _bounding box_, não geometria. Doze ao todo (`0001`, `0002`, `0005`).
 
 | Índice                     | Colunas                        | Consulta que serve                                               |
 | -------------------------- | ------------------------------ | ---------------------------------------------------------------- |
 | `..._bairro_norm_...`      | `bairro_norm`                  | autocomplete e busca por bairro                                  |
 | `..._cep_...`              | `cep`                          | busca por CEP                                                    |
-| `..._distrito_...`         | `distrito`                     | agregação por distrito                                           |
+| `..._distrito_...`         | `distrito`                     | proveniência — não usado em consulta de view                     |
+| `..._distrito_slug_...`    | `distrito_slug`                | filtro por região                                                |
 | `..._ano_transacao_...`    | `ano_transacao`                | recorte temporal                                                 |
 | `..._uso_grupo_...`        | `uso_grupo`                    | filtro por tipo de imóvel                                        |
 | `..._qualidade_...`        | `qualidade`                    | esconder linhas ruins (quase toda consulta filtra `qualidade=0`) |
 | `radar_trans_lat_lon`      | `(lat, lon)`                   | pontos dentro da área visível do mapa                            |
-| `radar_trans_distrito_ano` | `(distrito, ano_transacao)`    | **a consulta da tela principal**: mediana da região num período  |
+| `radar_trans_dslug_ano`    | `(distrito_slug, ano_transacao)` | **a consulta da tela principal**: mediana da região num período |
 | `radar_trans_guia`         | `(ano_guia, mes_guia)`         | `--substituir-mes` da carga (`0002`)                             |
 | `radar_trans_bairro_ano`   | `(bairro_norm, ano_transacao)` | idem, pela outra chave de busca                                  |
 
@@ -167,7 +170,7 @@ aconteceu. As datas de transação da base vão de **1994 a 2026** (33 anos dist
 
 Sem recortar por `ano_transacao`, a mediana de uma região mistura um negócio de 1998
 com um de 2026 — e a mediana _é_ o produto. Por isso ele entra no MVP e é indexado
-junto com `distrito` e `bairro_norm`.
+junto com `distrito_slug` e `bairro_norm`.
 
 ### 3. `qualidade` esconde as linhas que não fecham
 
@@ -184,9 +187,12 @@ Quase toda consulta do produto filtra `qualidade=0` — daí o índice.
 
 ### 4. `bairro` pode ser vazio; `cep` e `sql` não
 
-40% das linhas da planilha não têm bairro. A chave de recuperação de endereço e de
-geocodificação é `sql` + `cep` (100% e 99,998% preenchidos), não o bairro. `bairro` e
-`bairro_norm` são `blank=True` de propósito.
+40% das linhas da planilha não têm bairro. `sql` (100%) e `cep` (99,998%) são
+completos onde `bairro` não é — mas cada um serve a um propósito diferente:
+**`sql` é a chave de geocodificação** (`geo_ref.resolver()` usa `sql` + `logradouro`
++ `numero`, nunca `cep` — a referência do GeoSampa não tem CEP como chave). `cep` é
+a chave de **recuperação de endereço**, pra quando a busca por CEP existir (`#28`).
+`bairro` e `bairro_norm` são `blank=True` de propósito.
 
 ### 5. `flag_cadastro_defasado`: o IPTU não acompanhou a realidade
 
@@ -236,6 +242,7 @@ classDiagram
         CharField bairro_norm
         CharField cep
         CharField distrito
+        CharField distrito_slug
         FloatField lat
         FloatField lon
         CharField geo_nivel
@@ -252,16 +259,16 @@ classDiagram
         SmallIntegerField mes_guia
         __str__() str
     }
-    note for Transacao "verbose_name transação / transações. Índices compostos: (lat, lon), (distrito, ano_transacao), (bairro_norm, ano_transacao), (ano_guia, mes_guia)."
+    note for Transacao "verbose_name transação / transações. Índices compostos: (lat, lon), (distrito_slug, ano_transacao), (bairro_norm, ano_transacao), (ano_guia, mes_guia)."
 ```
 
 Anulável (`null=True`): `lat`, `lon`, `data_transacao`, `ano_transacao`,
 `area_construida`, `rs_m2_construido`, `ano_guia`, `mes_guia`.
 Pode ser vazio (`blank=True`): `complemento`, `bairro`, `bairro_norm`, `cep`,
-`distrito`, `geo_nivel`, `uso_grupo`.
-Indexado: `bairro_norm`, `cep`, `distrito`, `ano_transacao`, `uso_grupo`,
-`qualidade`, mais os quatro compostos. `flag_cadastro_defasado` fica sem índice até
-uma tela agregá-lo.
+`distrito`, `distrito_slug`, `geo_nivel`, `uso_grupo`.
+Indexado: `bairro_norm`, `cep`, `distrito`, `distrito_slug`, `ano_transacao`,
+`uso_grupo`, `qualidade`, mais os quatro compostos. `flag_cadastro_defasado` fica
+sem índice até uma tela agregá-lo.
 
 ---
 

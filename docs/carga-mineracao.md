@@ -86,8 +86,10 @@ Três decisões, tomadas com o `scripts/analisar_bairros.py` sobre a extração 
 | após `normalizar` + descarte de lixo | **7.148** (−14,6%) |
 
 O campo continua alto-cardinalidade — é o "bairro" informal do IPTU, não os 96
-distritos oficiais. A lista limpa de região vem de `distrito` (geo). `bairro_norm` é a
-chave familiar que o usuário digita, com match exato após normalizar.
+distritos oficiais. A lista limpa de região vem do registro canônico
+(`radar/regioes.py`, ver `docs/modelo-transacao.md`), a partir de `distrito` (geo).
+`bairro_norm` é a chave familiar que o usuário digita, com match exato após
+normalizar.
 
 ### API
 

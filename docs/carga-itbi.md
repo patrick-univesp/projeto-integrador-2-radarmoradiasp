@@ -165,3 +165,12 @@ diferença. Onde aparece:
 - **na linha `CargaMensal`** (campo `por_mes`, mostrado como tabela);
 - **no `/admin/radar/transacao/`**, filtrando por `ano_guia`/`mes_guia` (o admin
   mostra a contagem do recorte no topo).
+
+**`lidas` não é "todas as linhas da aba" — é "todas as linhas com célula de `sql`
+preenchida".** Uma linha com `sql` genuinamente vazio (`None`, não zero nem erro de
+formato) é pulada em `_ler_aba` antes de qualquer contagem — não entra em `lidas`
+nem em `descartadas`. É proposital, para não tropeçar em linha em branco no fim da
+aba, mas é a única lacuna real da reconciliação: se `lidas` não bater com a
+contagem manual da aba, é esse o motivo mais provável, não corrupção de dado.
+`descartadas` é o outro caso — `sql` tem conteúdo mas não vira 11 dígitos válidos —,
+e esse sim é contado.
