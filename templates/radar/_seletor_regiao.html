@@ -1,0 +1,19 @@
+<form class="busca comparar__busca" method="get" action="{% url 'radar:comparar' %}" role="search">
+  {% if campo == "a" %}
+    <input type="hidden" name="b" value="{{ outro_slug }}">
+  {% else %}
+    <input type="hidden" name="a" value="{{ outro_slug }}">
+  {% endif %}
+  <label class="mono hero__rotulo" for="q-{{ campo }}">{% if regiao %}trocar esta região{% else %}escolher região{% endif %}</label>
+  <div class="busca__caixa">
+    <span class="busca__lupa" aria-hidden="true"></span>
+    <input class="busca__campo" type="search" id="q-{{ campo }}" name="{{ campo }}"
+           placeholder="Digite um bairro de São Paulo"
+           autocomplete="off" enterkeyhint="search"
+           value="{{ regiao.slug|default:'' }}"
+           role="combobox" aria-expanded="false" aria-autocomplete="list"
+           aria-controls="sugestoes-lista-{{ campo }}" data-autocomplete="form">
+    <button class="busca__botao" type="submit">{% if regiao %}Trocar{% else %}Comparar{% endif %}</button>
+  </div>
+  <ul id="sugestoes-lista-{{ campo }}" class="sugestoes" role="listbox" aria-label="Sugestões de região" hidden></ul>
+</form>

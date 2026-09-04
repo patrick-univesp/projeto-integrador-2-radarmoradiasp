@@ -1,0 +1,34 @@
+<p class="regiao__rotulo">valor típico <span class="regiao__rotulo-discreto">(mediana)</span></p>
+<p class="regiao__numero">R$&nbsp;{{ mediana_fmt }}<span class="regiao__unidade">/m²</span></p>
+
+{% if p25_fmt and p75_fmt and p25_fmt != p75_fmt %}
+  <div class="faixa" role="img" aria-label="A maioria das vendas ficou entre R$ {{ p25_fmt }} e R$ {{ p75_fmt }} por metro quadrado">
+    <div class="faixa__trilho">
+      <span class="faixa__marcador" data-pos="{{ pos_mediana_pct }}"></span>
+    </div>
+    <div class="faixa__rotulos">
+      <span>R$ {{ p25_fmt }}</span>
+      <span class="faixa__rotulos-meio">a maioria das vendas</span>
+      <span>R$ {{ p75_fmt }}</span>
+    </div>
+  </div>
+{% endif %}
+
+{% if stats.confianca == "ok" %}
+  <p class="regiao__confianca">baseado em {{ stats.n_com_metrica }} transações</p>
+{% elif stats.confianca == "insuficiente" %}
+  <div class="aviso" role="note">
+    Baseado em só {{ stats.n_com_metrica }} venda{{ stats.n_com_metrica|pluralize }} — número com confiança insuficiente. Trate como indicativo, não como referência.
+  </div>
+{% else %}
+  <div class="aviso" role="note">
+    Baseado em {{ stats.n_com_metrica }} vendas — amostra pequena, o número pode mudar bastante com as
+    próximas transações.
+  </div>
+{% endif %}
+
+<ul class="regiao__ressalvas">
+  <li>Esta área é a do cadastro do IPTU e inclui a quota-parte de áreas comuns — por isso este valor fica
+    naturalmente abaixo de índices de anúncio como o FipeZap.</li>
+  {% if periodo %}<li>Período coberto pelos dados: {{ periodo }}.</li>{% endif %}
+</ul>

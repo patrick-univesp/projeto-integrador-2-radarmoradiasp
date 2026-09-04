@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block titulo %}{% if regiao_a and regiao_b %}{{ regiao_a.nome }} vs. {{ regiao_b.nome }}{% else %}Comparar regiões{% endif %} · Radar da Moradia SP{% endblock %}
+{% block descricao %}{% if regiao_a and regiao_b %}{% if diferenca and not diferenca.igual %}{{ regiao_b.nome }} tem valor típico R$ {{ diferenca.abs_fmt }}/m² {% if diferenca.b_mais_caro %}maior{% else %}menor{% endif %} que {{ regiao_a.nome }}, a partir de dados reais do ITBI.{% else %}Compare o valor típico do metro quadrado entre {{ regiao_a.nome }} e {{ regiao_b.nome }}, a partir de dados reais do ITBI.{% endif %}{% else %}Compare o valor típico do metro quadrado entre duas regiões de São Paulo, a partir de dados reais do ITBI.{% endif %}{% endblock %}
+
+{% block og_titulo %}{% if regiao_a and regiao_b %}{{ regiao_a.nome }} vs. {{ regiao_b.nome }}{% if diferenca and not diferenca.igual %} · R$ {{ diferenca.abs_fmt }}/m² de diferença{% endif %} — Radar da Moradia SP{% else %}Comparar regiões — Radar da Moradia SP{% endif %}{% endblock %}
+{% block og_descricao %}{% if regiao_a and regiao_b %}{% if diferenca %}{% if diferenca.igual %}{{ regiao_a.nome }} e {{ regiao_b.nome }} têm o mesmo valor típico de metro quadrado.{% else %}{{ regiao_b.nome }} é R$ {{ diferenca.abs_fmt }}/m² {% if diferenca.b_mais_caro %}mais caro{% else %}mais barato{% endif %} que {{ regiao_a.nome }}{% if diferenca.pct_fmt %} ({{ diferenca.pct_fmt }}%){% endif %}.{% endif %}{% if confianca_baixa %} Uma das regiões tem poucas vendas registradas: compare com cautela.{% endif %}{% else %}Ainda não há dados suficientes em uma das regiões para calcular a diferença.{% endif %}{% else %}Compare o valor típico do metro quadrado entre duas regiões de São Paulo, a partir de dados reais do ITBI.{% endif %}{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/regiao.css' %}">
+  <link rel="stylesheet" href="{% static 'css/comparar.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+<div class="container comparar">
+  <header class="comparar__topo">
+    <h1 class="comparar__titulo">Comparar regiões</h1>
+  </header>
+
+  {% if regiao_a and regiao_b %}
+    <div class="comparar__diferenca">
+      {% if diferenca %}
+        {% if diferenca.igual %}
+          <p class="comparar__diferenca-texto">{{ regiao_a.nome }} e {{ regiao_b.nome }} têm o mesmo valor típico de metro quadrado.</p>
+        {% else %}
+          <p class="comparar__diferenca-texto">
+            <strong>{{ regiao_b.nome }}</strong> é
+            <strong>R$&nbsp;{{ diferenca.abs_fmt }}/m²</strong>
+            {% if diferenca.b_mais_caro %}mais caro{% else %}mais barato{% endif %}
+            que <strong>{{ regiao_a.nome }}</strong>{% if diferenca.pct_fmt %} ({{ diferenca.pct_fmt }}%){% endif %}.
+          </p>
+        {% endif %}
+      {% else %}
+        <p class="comparar__diferenca-texto">Não há dados suficientes para calcular a diferença entre {{ regiao_a.nome }} e {{ regiao_b.nome }}.</p>
+      {% endif %}
+      {% if confianca_baixa and diferenca %}
+        <div class="aviso" role="note">Uma das regiões tem poucas vendas registradas — compare com cautela.</div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="comparar__lados">
+    <section class="comparar__lado">
+      {% include "radar/_seletor_regiao.html" with campo="a" regiao=regiao_a outro_slug=regiao_b.slug %}
+      {% if regiao_a %}
+        <h2 class="comparar__nome">{{ regiao_a.nome }}</h2>
+        {% if contexto_a.mediana_fmt %}
+          {% include "radar/_bloco_destaque.html" with mediana_fmt=contexto_a.mediana_fmt p25_fmt=contexto_a.p25_fmt p75_fmt=contexto_a.p75_fmt pos_mediana_pct=contexto_a.pos_mediana_pct stats=contexto_a.stats periodo=contexto_a.periodo only %}
+        {% else %}
+          <p class="comparar__vazio">Ainda não há vendas suficientes registradas no ITBI para calcular um valor típico em {{ regiao_a.nome }}.</p>
+        {% endif %}
+      {% endif %}
+    </section>
+
+    <section class="comparar__lado">
+      {% include "radar/_seletor_regiao.html" with campo="b" regiao=regiao_b outro_slug=regiao_a.slug %}
+      {% if regiao_b %}
+        <h2 class="comparar__nome">{{ regiao_b.nome }}</h2>
+        {% if contexto_b.mediana_fmt %}
+          {% include "radar/_bloco_destaque.html" with mediana_fmt=contexto_b.mediana_fmt p25_fmt=contexto_b.p25_fmt p75_fmt=contexto_b.p75_fmt pos_mediana_pct=contexto_b.pos_mediana_pct stats=contexto_b.stats periodo=contexto_b.periodo only %}
+        {% else %}
+          <p class="comparar__vazio">Ainda não há vendas suficientes registradas no ITBI para calcular um valor típico em {{ regiao_b.nome }}.</p>
+        {% endif %}
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/faixa_marcador.js' %}" defer></script>
+<script src="{% static 'js/autocomplete.js' %}" defer></script>
+{% endblock %}

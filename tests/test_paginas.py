@@ -854,3 +854,104 @@ def test_css_nao_tem_cor_literal():
         assert not re.search(r"#[0-9A-Fa-f]{3,8}\b", pintura), f"{css_file.name} contém hex literal"
         assert not re.search(r"\b(rgb|hsl|oklch)\(", pintura), f"{css_file.name} contém função de cor literal"
 
+
+# ---- /comparar/ (comparação entre regiões) ----
+
+
+@pytest.mark.django_db
+def test_comparar_mostra_as_duas_regioes_e_a_diferenca(client):
+    for i in range(30):
+        _transacao_regiao(rs_m2_construido=Decimal(8000 + i * 100))
+    for i in range(30):
+        _transacao_regiao(
+            distrito="PINHEIROS", distrito_slug="pinheiros",
+            rs_m2_construido=Decimal(10000 + i * 100),
+        )
+    corpo = client.get(reverse("radar:comparar"), {"a": "mooca", "b": "pinheiros"}).content.decode()
+    assert "Mooca" in corpo
+    assert "Pinheiros" in corpo
+    assert "mais caro" in corpo
+    assert 'class="aviso"' not in corpo
+
+
+@pytest.mark.django_db
+def test_comparar_confianca_baixa_em_um_lado_mostra_aviso(client):
+    for i in range(30):
+        _transacao_regiao(rs_m2_construido=Decimal(8000 + i * 100))
+    for i in range(3):
+        _transacao_regiao(
+            distrito="PINHEIROS", distrito_slug="pinheiros",
+            rs_m2_construido=Decimal(10000 + i * 100),
+        )
+    corpo = client.get(reverse("radar:comparar"), {"a": "mooca", "b": "pinheiros"}).content.decode()
+    assert 'class="aviso"' in corpo
+    assert "compare com cautela" in corpo
+
+
+@pytest.mark.django_db
+def test_comparar_regiao_consigo_mesma_nao_quebra(client):
+    for i in range(30):
+        _transacao_regiao(rs_m2_construido=Decimal(8000 + i * 100))
+    r = client.get(reverse("radar:comparar"), {"a": "mooca", "b": "mooca"})
+    assert r.status_code == 200
+    assert "o mesmo valor típico" in r.content.decode()
+
+
+@pytest.mark.django_db
+def test_comparar_url_com_a_e_b_reabre_a_mesma_comparacao(client):
+    """Critério de aceitação: a URL da comparação pode ser copiada e aberta de novo."""
+    for i in range(30):
+        _transacao_regiao(rs_m2_construido=Decimal(8000 + i * 100))
+    for i in range(30):
+        _transacao_regiao(
+            distrito="PINHEIROS", distrito_slug="pinheiros",
+            rs_m2_construido=Decimal(10000 + i * 100),
+        )
+    url = "/comparar/?a=mooca&b=pinheiros"
+    corpo = client.get(url).content.decode()
+    assert "Mooca" in corpo and "Pinheiros" in corpo
+    assert client.get(url).content.decode() == corpo
+
+
+@pytest.mark.django_db
+def test_comparar_sem_parametros_mostra_selecao(client):
+    r = client.get(reverse("radar:comparar"))
+    assert r.status_code == 200
+    corpo = r.content.decode()
+    assert 'id="q-a"' in corpo
+    assert 'id="q-b"' in corpo
+    assert "<h2" not in corpo
+
+
+@pytest.mark.django_db
+def test_comparar_so_um_lado_preenchido_mostra_o_outro_vazio(client):
+    """Ponto de entrada da página de região: o link "Comparar com outra
+    região" só manda `a`."""
+    for i in range(30):
+        _transacao_regiao(rs_m2_construido=Decimal(8000 + i * 100))
+    r = client.get(reverse("radar:comparar"), {"a": "mooca"})
+    assert r.status_code == 200
+    corpo = r.content.decode()
+    assert "Mooca" in corpo
+    assert corpo.count("<h2") == 1
+
+
+def test_comparar_slug_inexistente_da_404(client):
+    r = client.get(reverse("radar:comparar"), {"a": "mooca", "b": "xpto-nao-existe"})
+    assert r.status_code == 404
+
+
+def test_comparar_apelido_redireciona_para_o_canonico(client):
+    r = client.get(reverse("radar:comparar"), {"a": "vila-madalena", "b": "mooca"})
+    assert r.status_code == 301
+    assert r.url == "/comparar/?a=pinheiros&b=mooca"
+
+
+@pytest.mark.django_db
+def test_comparar_uma_regiao_sem_dados_mostra_estado_vazio_so_naquele_lado(client):
+    for i in range(30):
+        _transacao_regiao(rs_m2_construido=Decimal(8000 + i * 100))
+    corpo = client.get(reverse("radar:comparar"), {"a": "mooca", "b": "marsilac"}).content.decode()
+    assert "Ainda não há vendas suficientes" in corpo
+    assert "Não há dados suficientes para calcular a diferença" in corpo
+

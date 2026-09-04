@@ -297,6 +297,37 @@ def busca(request):
     )
 
 
+def _contexto_destaque(stats):
+    """Os dados que ``_bloco_destaque.html`` precisa pra desenhar o número
+    típico, a faixa p25↔p75 e o aviso de confiança — reusado tanto pela página
+    da região quanto pela comparação entre regiões."""
+    mediana = stats["mediana_rs_m2"]
+    p25, p75 = stats["p25_rs_m2"], stats["p75_rs_m2"]
+    pos_mediana_pct = None
+    if mediana is not None and p75 != p25:
+        # String, não número: LANGUAGE_CODE="pt-br" localiza um float no template
+        # (ponto → vírgula), e "left: 50,0%" é CSS inválido.
+        pos_mediana_pct = f"{float((mediana - p25) / (p75 - p25)) * 100:.1f}"
+    elif mediana is not None:
+        pos_mediana_pct = "50.0"
+
+    return {
+        "stats": stats,
+        "mediana_fmt": _formatar_rs(mediana),
+        "p25_fmt": _formatar_rs(p25),
+        "p75_fmt": _formatar_rs(p75),
+        "pos_mediana_pct": pos_mediana_pct,
+        "periodo": (
+            _rotular_periodo(
+                stats["periodo_inicio"].year, stats["periodo_inicio"].month,
+                stats["periodo_fim"].year, stats["periodo_fim"].month,
+            )
+            if stats["periodo_inicio"]
+            else ""
+        ),
+    }
+
+
 @ratelimit(key="ip", rate=TAXA_CONSULTA, block=False)
 def regiao(request, slug):
     if request.limited:
@@ -308,16 +339,7 @@ def regiao(request, slug):
         raise Http404(f"região {slug!r} não existe")
 
     stats = estatisticas_regiao(Transacao.objects.filter(distrito_slug=slug))
-
-    mediana = stats["mediana_rs_m2"]
-    p25, p75 = stats["p25_rs_m2"], stats["p75_rs_m2"]
-    pos_mediana_pct = None
-    if mediana is not None and p75 != p25:
-        # String, não número: LANGUAGE_CODE="pt-br" localiza um float no template
-        # (ponto → vírgula), e "left: 50,0%" é CSS inválido.
-        pos_mediana_pct = f"{float((mediana - p25) / (p75 - p25)) * 100:.1f}"
-    elif mediana is not None:
-        pos_mediana_pct = "50.0"
+    destaque = _contexto_destaque(stats)
 
     serie, _ = serie_mensal(Transacao.objects.filter(distrito_slug=slug), ano_min=stats["ano_min"])
     grafico_serie = _grafico_serie(serie)
@@ -336,24 +358,84 @@ def regiao(request, slug):
         "radar/regiao.html",
         {
             "regiao": r,
-            "stats": stats,
-            "mediana_fmt": _formatar_rs(mediana),
-            "p25_fmt": _formatar_rs(p25),
-            "p75_fmt": _formatar_rs(p75),
-            "pos_mediana_pct": pos_mediana_pct,
+            **destaque,
             "grafico_serie": grafico_serie,
             "transacoes": _transacoes_formatadas(pagina),
             "pagina": pagina,
             "ordenar": ordenar,
             "transacoes_vazio_texto": f"Nenhuma transação encontrada com estes critérios em {r.nome}.",
-            "periodo": (
-                _rotular_periodo(
-                    stats["periodo_inicio"].year, stats["periodo_inicio"].month,
-                    stats["periodo_fim"].year, stats["periodo_fim"].month,
-                )
-                if stats["periodo_inicio"]
-                else ""
-            ),
+        },
+    )
+
+
+def _stats_alinhadas(slug_a, slug_b):
+    """Estatísticas das duas regiões na **mesma janela de anos** — comparar a
+    mediana de um período com a de outro período diferente seria enganoso.
+    Usa a janela mais antiga das duas (ver ``estatisticas_regiao``, que já
+    antecipa esse uso)."""
+    qs_a = Transacao.objects.filter(distrito_slug=slug_a)
+    qs_b = Transacao.objects.filter(distrito_slug=slug_b)
+
+    anos = [
+        a
+        for a in (estatisticas_regiao(qs_a)["ano_min"], estatisticas_regiao(qs_b)["ano_min"])
+        if a is not None
+    ]
+    ano_min_comum = min(anos) if anos else None
+
+    return estatisticas_regiao(qs_a, ano_min=ano_min_comum), estatisticas_regiao(qs_b, ano_min=ano_min_comum)
+
+
+def _diferenca(stats_a, stats_b):
+    m_a, m_b = stats_a["mediana_rs_m2"], stats_b["mediana_rs_m2"]
+    if m_a is None or m_b is None:
+        return None
+    diff = m_b - m_a
+    pct = float(abs(diff) / m_a * 100) if m_a else None
+    return {
+        "abs_fmt": _formatar_rs(abs(diff)),
+        "pct_fmt": f"{pct:.1f}" if pct is not None else None,
+        "b_mais_caro": diff > 0,
+        "igual": diff == 0,
+    }
+
+
+@ratelimit(key="ip", rate=TAXA_CONSULTA, block=False)
+def comparar(request):
+    """Comparação entre duas regiões — RF7: o Q1 (onde mora) e o Q3 (onde
+    moraria) da pesquisa com a comunidade, lado a lado."""
+    if request.limited:
+        return render(request, "429.html", status=429)
+
+    slug_a = request.GET.get("a") or ""
+    slug_b = request.GET.get("b") or ""
+    canonico_a, canonico_b = APELIDOS.get(slug_a, slug_a), APELIDOS.get(slug_b, slug_b)
+    if canonico_a != slug_a or canonico_b != slug_b:
+        return HttpResponsePermanentRedirect(f"{reverse('radar:comparar')}?a={canonico_a}&b={canonico_b}")
+
+    regiao_a = POR_SLUG.get(slug_a) if slug_a else None
+    regiao_b = POR_SLUG.get(slug_b) if slug_b else None
+    if (slug_a and regiao_a is None) or (slug_b and regiao_b is None):
+        raise Http404("região inexistente")
+
+    if regiao_a is None or regiao_b is None:
+        # Falta escolher um dos dois lados — não é erro, é o ponto de entrada
+        # da página (ex.: link "Comparar com outra região" da página de região, só com `a`).
+        return render(request, "radar/comparar.html", {"regiao_a": regiao_a, "regiao_b": regiao_b})
+
+    stats_a, stats_b = _stats_alinhadas(slug_a, slug_b)
+    diferenca = _diferenca(stats_a, stats_b)
+
+    return render(
+        request,
+        "radar/comparar.html",
+        {
+            "regiao_a": regiao_a,
+            "regiao_b": regiao_b,
+            "contexto_a": _contexto_destaque(stats_a),
+            "contexto_b": _contexto_destaque(stats_b),
+            "diferenca": diferenca,
+            "confianca_baixa": stats_a["confianca"] != "ok" or stats_b["confianca"] != "ok",
         },
     )
 

@@ -1,0 +1,86 @@
+/* Radar da Moradia SP — comparação entre duas regiões */
+
+.comparar {
+  padding-block: var(--e-6) var(--e-12);
+  max-width: 640px;
+}
+
+.comparar__titulo {
+  font-size: var(--t-titulo);
+  font-weight: var(--peso-forte);
+  letter-spacing: -.015em;
+  color: var(--text);
+}
+
+.comparar__diferenca {
+  margin-top: var(--e-6);
+  padding: var(--e-5);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--raio-cartao);
+}
+.comparar__diferenca-texto {
+  font-size: var(--t-secao);
+  color: var(--text);
+  line-height: 1.4;
+}
+.comparar__diferenca .aviso { margin-top: var(--e-4); }
+
+.comparar__lados {
+  margin-top: var(--e-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-8);
+}
+
+.comparar__lado {
+  padding-top: var(--e-6);
+  border-top: 1px solid var(--line);
+}
+
+.comparar__nome {
+  margin-top: var(--e-4);
+  font-size: 1.5rem;
+  font-weight: var(--peso-forte);
+  color: var(--text);
+}
+
+.comparar__vazio {
+  margin-top: var(--e-4);
+  color: var(--text-2);
+}
+
+.regiao__link-comparar {
+  display: inline-block;
+  margin-top: var(--e-3);
+  font-size: var(--t-apoio);
+  color: var(--accent-ink);
+}
+
+@media (min-width: 720px) {
+  .comparar__titulo { font-size: 2.25rem; }
+}
+
+@media (min-width: 1024px) {
+  .comparar {
+    max-width: 1120px;
+  }
+
+  .comparar__lados {
+    flex-direction: row;
+    align-items: start;
+  }
+
+  .comparar__lado {
+    flex: 1;
+    min-width: 0;
+    padding-top: 0;
+    border-top: none;
+    padding-inline-start: var(--e-8);
+    border-left: 1px solid var(--line);
+  }
+  .comparar__lado:first-child {
+    padding-inline-start: 0;
+    border-left: none;
+  }
+}
