@@ -42,6 +42,12 @@
         </div>
       </form>
 
+      {% if periodo %}
+        <p class="hero__base">
+          <strong data-contador="{{ n_vendas }}">{{ total_vendas }}</strong> transações reais, de {{ periodo }}.
+        </p>
+      {% endif %}
+
       <div class="hero__atalhos">
         <div class="atalhos">
           <span class="mono hero__atalhos-titulo">mais buscadas</span>
@@ -60,4 +66,5 @@
 {% block js %}
 <script src="{% static 'js/busca_animada.js' %}" defer></script>
 <script src="{% static 'js/transicao_busca.js' %}" defer></script>
+<script src="{% static 'js/contador_transacoes.js' %}" defer></script>
 {% endblock %}

@@ -8,16 +8,80 @@ from django.template.loader import get_template
 from django.urls import reverse
 
 
+@pytest.mark.django_db
 def test_inicio_responde(client):
     r = client.get(reverse("radar:inicio"))
     assert r.status_code == 200
     assert "Quanto se pagou de verdade" in r.content.decode()
 
 
+@pytest.mark.django_db
 def test_inicio_traz_atalhos_de_regiao(client):
     corpo = client.get(reverse("radar:inicio")).content.decode()
     assert 'href="/regiao/mooca/"' in corpo
     assert "Itaim Bibi" in corpo
+
+
+def _transacao(ano_guia, mes_guia):
+    from radar.models import Transacao
+
+    return Transacao.objects.create(
+        sql="03500000100", valor_transacao=1, base_calculo=1,
+        ano_guia=ano_guia, mes_guia=mes_guia,
+    )
+
+
+@pytest.mark.django_db
+def test_resumo_da_base_conta_e_datar_o_periodo():
+    """O total e o período da home vêm do banco, não de string em código (issue #06)."""
+    from radar.views import _resumo_da_base
+
+    _transacao(2026, 1)
+    _transacao(2026, 7)
+    _transacao(2026, 7)
+    assert _resumo_da_base() == {
+        "n_vendas": 3, "total_vendas": "3", "periodo": "janeiro a julho de 2026",
+    }
+
+
+@pytest.mark.django_db
+def test_resumo_da_base_atravessa_anos():
+    from radar.views import _resumo_da_base
+
+    _transacao(2025, 11)
+    _transacao(2026, 3)
+    assert _resumo_da_base()["periodo"] == "novembro de 2025 a março de 2026"
+
+
+@pytest.mark.django_db
+def test_resumo_da_base_um_mes_so():
+    from radar.views import _resumo_da_base
+
+    _transacao(2026, 7)
+    assert _resumo_da_base()["periodo"] == "julho de 2026"
+
+
+@pytest.mark.django_db
+def test_resumo_da_base_vazio_nao_quebra():
+    """Ambiente sem carga (dev recém-migrado): a home renderiza mesmo assim."""
+    from radar.views import _resumo_da_base
+
+    assert _resumo_da_base() == {"n_vendas": 0, "total_vendas": "0", "periodo": ""}
+
+
+@pytest.mark.django_db
+def test_inicio_mostra_total_e_periodo_quando_ha_dados(client):
+    _transacao(2026, 1)
+    _transacao(2026, 7)
+    corpo = client.get(reverse("radar:inicio")).content.decode()
+    assert 'data-contador="2">2</strong>' in corpo
+    assert "transações reais, de janeiro a julho de 2026." in corpo
+
+
+@pytest.mark.django_db
+def test_inicio_omite_a_linha_da_base_quando_vazia(client):
+    corpo = client.get(reverse("radar:inicio")).content.decode()
+    assert "transações reais" not in corpo
 
 
 def test_busca_aceita_termo(client):
@@ -31,6 +95,7 @@ def test_regiao_responde(client):
     assert r.status_code == 200
 
 
+@pytest.mark.django_db
 def test_inicio_tem_botao_entrar(client):
     corpo = client.get(reverse("radar:inicio")).content.decode()
     assert 'href="/entrar/"' in corpo
@@ -61,6 +126,7 @@ def test_500_renderiza_sem_contexto_de_requisicao():
         "css/transicao.css",
         "css/erro.css",
         "js/busca_animada.js",
+        "js/contador_transacoes.js",
     ],
 )
 def test_estatico_existe(nome):
@@ -69,11 +135,27 @@ def test_estatico_existe(nome):
     assert finders.find(nome), f"não encontrado em STATICFILES_DIRS: {nome}"
 
 
+@pytest.mark.django_db
 def test_inicio_carrega_busca_animada(client):
     corpo = client.get(reverse("radar:inicio")).content.decode()
     assert "busca_animada.js" in corpo
 
 
+@pytest.mark.django_db
+def test_inicio_carrega_contador_de_transacoes(client):
+    corpo = client.get(reverse("radar:inicio")).content.decode()
+    assert '<script src="/static/js/contador_transacoes.js" defer></script>' in corpo
+
+
+def test_contador_respeita_reduced_motion():
+    """A contagem é cosmética; quem pede menos movimento não deve recebê-la."""
+    from pathlib import Path
+
+    js = Path("static/js/contador_transacoes.js").read_text()
+    assert "prefers-reduced-motion" in js
+
+
+@pytest.mark.django_db
 def test_sem_script_inline(client):
     """A CSP de produção (issue #11) não vai permitir script inline. Hoje a
     página não tem JavaScript nenhum; quando tiver, tem de ser arquivo

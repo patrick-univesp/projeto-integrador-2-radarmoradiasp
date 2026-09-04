@@ -372,6 +372,18 @@ main {
 }
 .hero__busca { margin-top: var(--e-6); }
 .hero__rotulo { display: block; margin-bottom: var(--e-2); }
+/* --text-2, não --text-3: fica sobre a planta cadastral do hero, e a regra é
+ * mirar a superfície mais forte, não o caso feliz (ver interface.md §2). */
+.hero__base {
+  margin-top: var(--e-4);
+  font-size: var(--t-apoio);
+  color: var(--text-2);
+}
+.hero__base strong {
+  font-weight: var(--peso-forte);
+  color: var(--text);
+  font-variant-numeric: tabular-nums; /* dígito não muda de largura durante a contagem */
+}
 .hero__atalhos { margin-top: var(--e-6); }
 .hero__atalhos-titulo { flex: 1 0 100%; margin-bottom: var(--e-1); }
 
