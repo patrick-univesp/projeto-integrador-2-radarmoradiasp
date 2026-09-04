@@ -47,3 +47,6 @@ CLAUDE.md
 
 # Planilhas de origem e material de apoio (fora do repositorio)
 tmp/
+
+# Frontend (#19): eslint/stylelint via npm, so pra lint — sem build, sem bundle
+node_modules/

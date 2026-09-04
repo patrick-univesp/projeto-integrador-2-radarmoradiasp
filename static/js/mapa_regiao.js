@@ -25,7 +25,7 @@
       ctx.fillRect(0, 0, 1, 1);
       var px = ctx.getImageData(0, 0, 1, 1).data;
       return 'rgb(' + px[0] + ',' + px[1] + ',' + px[2] + ')';
-    } catch (e) {
+    } catch {
       return fallback;
     }
   }

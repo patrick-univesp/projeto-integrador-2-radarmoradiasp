@@ -7,15 +7,16 @@ RUFF = venv/bin/ruff
 DJLINT = venv/bin/djlint
 MANAGE = $(PYTHON) manage.py
 
-.PHONY: help install setup-env migrate run test lint format createsuperuser sast collectstatic reset-db deploy-script
+.PHONY: help install setup-env migrate run test lint lint-js lint-css format createsuperuser sast collectstatic reset-db deploy-script
 
 help: ## Exibe esta ajuda
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-install: ## Cria o venv e instala as dependencias de desenvolvimento
+install: ## Cria o venv, instala as dependencias Python e as de frontend (lint)
 	$(PYTHON_BIN) -m venv venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements-dev.txt
+	npm install
 
 setup-env: ## Cria o arquivo .env a partir do exemplo
 	cp -n .env.example .env || true
@@ -32,9 +33,15 @@ run: ## Sobe o servidor de desenvolvimento
 test: ## Executa os testes
 	$(PYTEST) tests/ -v
 
-lint: ## Verifica estilo com ruff e djlint
+lint: lint-js lint-css ## Verifica estilo com ruff, djlint, eslint e stylelint
 	$(RUFF) check .
 	$(DJLINT) templates/
+
+lint-js: ## Lint de static/js/ com ESLint (#19)
+	./node_modules/.bin/eslint static/js
+
+lint-css: ## Lint de static/css/ com Stylelint (#19) — static/vendor/ fica de fora
+	./node_modules/.bin/stylelint "static/css/**/*.css"
 
 format: ## Formata o codigo com ruff e djlint
 	$(RUFF) format .

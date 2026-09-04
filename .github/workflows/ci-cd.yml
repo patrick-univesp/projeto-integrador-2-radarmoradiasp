@@ -54,6 +54,30 @@ jobs:
       - name: Testes
         run: pytest tests/ -v
 
+  lint-frontend:
+    name: Lint frontend (ESLint + Stylelint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: lint-frontend-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Instalar dependencias de frontend
+        run: npm ci
+
+      - name: ESLint (static/js/)
+        run: npm run lint:js
+
+      - name: Stylelint (static/css/)
+        run: npm run lint:css
+
   sast:
     name: SAST (Bandit + pip-audit)
     runs-on: ubuntu-latest
@@ -79,7 +103,7 @@ jobs:
 
   deploy:
     name: Deploy na OCI
-    needs: [build-and-test, sast]
+    needs: [build-and-test, sast, lint-frontend]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
