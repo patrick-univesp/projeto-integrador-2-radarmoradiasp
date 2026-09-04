@@ -91,7 +91,10 @@ def _transacoes_formatadas(pagina):
     return [
         {
             "sql": t.sql,
-            "endereco": f"{t.logradouro}, {t.numero}",
+            # numero="" é "sem numeração" de verdade (coercao.para_numero_porta
+            # zera os códigos 0/99999 do cadastro, comum em Terreno) — "s/n",
+            # não vírgula solta.
+            "endereco": f"{t.logradouro}, {t.numero}" if t.numero else f"{t.logradouro}, s/n",
             "area_construida": t.area_construida,
             "uso_grupo": t.uso_grupo,
             "data": t.data_transacao,

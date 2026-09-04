@@ -358,6 +358,18 @@ def test_cep_lista_as_transacoes_daquele_cep(client):
 
 
 @pytest.mark.django_db
+def test_lista_numero_ausente_mostra_sem_numero_nao_virgula_solta(client):
+    """numero="" é "sem numeração" de verdade (coercao.para_numero_porta zera os
+    códigos 0/99999 do cadastro) — comum em Terreno, que a lista de CEP mostra
+    (não filtra por uso_grupo, diferente da lista de região). O card não pode
+    sobrar com vírgula solta ("R Domingos Leme, ")."""
+    _transacao_regiao(cep="01310100", logradouro="R Domingos Leme", numero="", uso_grupo="Terreno")
+    corpo = client.get(reverse("radar:cep", args=["01310100"])).content.decode()
+    assert "R Domingos Leme, s/n" in corpo
+    assert "R Domingos Leme, </p>" not in corpo
+
+
+@pytest.mark.django_db
 def test_cep_nao_filtra_por_qualidade_uso_ou_ano(client):
     """Diferente da lista da região (#10, que sustenta uma mediana), a busca por
     CEP é consulta de endereço direta — mostra tudo que existe naquele CEP,
