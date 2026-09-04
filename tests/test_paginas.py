@@ -505,6 +505,20 @@ def test_regiao_grafico_da_serie_exibe_valores_dos_pontos(client):
     assert "serie_grafico.js" in corpo
 
 
+@pytest.mark.django_db
+def test_regiao_layout_estruturado_duas_colunas(client):
+    """Garante que os blocos estruturais do layout responsivo (duas colunas no desktop) estão presentes."""
+    _transacao_regiao(data_transacao=dt.date(2026, 5, 1), ano_transacao=2026)
+    _transacao_regiao(data_transacao=dt.date(2026, 6, 1), ano_transacao=2026)
+    corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    assert 'class="regiao__layout"' in corpo
+    assert 'class="regiao__bloco-destaque"' in corpo
+    assert 'class="regiao__bloco-serie"' in corpo
+    assert 'class="regiao__bloco-mapa"' in corpo
+    assert 'class="regiao__bloco-transacoes"' in corpo
+
+
+
 
 # ---- /cep/<cep>/ (#28) ----
 

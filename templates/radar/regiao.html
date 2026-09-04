@@ -18,142 +18,156 @@
 
 {% block conteudo %}
 <div class="container regiao">
-  <p class="mono regiao__zona">Zona {{ regiao.zona }}</p>
-  <h1 class="regiao__nome">{{ regiao.nome }}</h1>
+  <header class="regiao__topo">
+    <p class="mono regiao__zona">Zona {{ regiao.zona }}</p>
+    <h1 class="regiao__nome">{{ regiao.nome }}</h1>
+  </header>
 
   {% if mediana_fmt %}
-    <p class="regiao__rotulo">valor típico <span class="regiao__rotulo-discreto">(mediana)</span></p>
-    <p class="regiao__numero">R$&nbsp;{{ mediana_fmt }}<span class="regiao__unidade">/m²</span></p>
+    <div class="regiao__layout">
+      <div class="regiao__bloco-destaque">
+        <p class="regiao__rotulo">valor típico <span class="regiao__rotulo-discreto">(mediana)</span></p>
+        <p class="regiao__numero">R$&nbsp;{{ mediana_fmt }}<span class="regiao__unidade">/m²</span></p>
 
-    {% if p25_fmt and p75_fmt and p25_fmt != p75_fmt %}
-      <div class="faixa" role="img" aria-label="A maioria das vendas ficou entre R$ {{ p25_fmt }} e R$ {{ p75_fmt }} por metro quadrado">
-        <div class="faixa__trilho">
-          <span class="faixa__marcador" data-pos="{{ pos_mediana_pct }}"></span>
-        </div>
-        <div class="faixa__rotulos">
-          <span>R$ {{ p25_fmt }}</span>
-          <span class="faixa__rotulos-meio">a maioria das vendas</span>
-          <span>R$ {{ p75_fmt }}</span>
-        </div>
-      </div>
-    {% endif %}
-
-    {% if stats.confianca == "ok" %}
-      <p class="regiao__confianca">baseado em {{ stats.n_com_metrica }} transações</p>
-    {% elif stats.confianca == "insuficiente" %}
-      <div class="aviso" role="note">
-        Baseado em só {{ stats.n_com_metrica }} venda{{ stats.n_com_metrica|pluralize }} — número com confiança insuficiente. Trate como indicativo, não como referência.
-      </div>
-    {% else %}
-      <div class="aviso" role="note">
-        Baseado em {{ stats.n_com_metrica }} vendas — amostra pequena, o número pode mudar bastante com as
-        próximas transações.
-      </div>
-    {% endif %}
-
-    <ul class="regiao__ressalvas">
-      <li>Esta área é a do cadastro do IPTU e inclui a quota-parte de áreas comuns — por isso este valor fica
-        naturalmente abaixo de índices de anúncio como o FipeZap.</li>
-      {% if periodo %}<li>Período coberto pelos dados: {{ periodo }}.</li>{% endif %}
-    </ul>
-
-    {% if grafico_serie %}
-      <section class="serie" aria-labelledby="serie-titulo">
-        <h2 id="serie-titulo" class="serie__titulo">Evolução do valor típico</h2>
-        <p class="serie__legenda">Mediana de R$/m² por mês, pela data do negócio (não pela data de
-          pagamento da guia). Pontos mais claros são meses com poucas vendas — a mediana ali é
-          menos confiável.</p>
-
-        {% if grafico_serie.ultimo_ponto %}
-          <div class="serie__painel" id="serie-painel" aria-live="polite">
-            <div class="serie__painel-info">
-              <span class="serie__painel-mes" id="serie-painel-mes">{{ grafico_serie.ultimo_ponto.mes_rotulo }}</span>
-              <span class="serie__painel-sep" aria-hidden="true">·</span>
-              <strong class="serie__painel-valor" id="serie-painel-valor">R$&#160;{{ grafico_serie.ultimo_ponto.valor_fmt }}/m²</strong>
-              <span class="serie__painel-n" id="serie-painel-n">({{ grafico_serie.ultimo_ponto.n }} transaç{{ grafico_serie.ultimo_ponto.n|pluralize:"ão,ões" }})</span>
-              <span class="serie__painel-aviso{% if not grafico_serie.ultimo_ponto.fraco %} serie__painel-aviso--oculto{% endif %}" id="serie-painel-aviso">poucas vendas, mediana pouco confiável</span>
+        {% if p25_fmt and p75_fmt and p25_fmt != p75_fmt %}
+          <div class="faixa" role="img" aria-label="A maioria das vendas ficou entre R$ {{ p25_fmt }} e R$ {{ p75_fmt }} por metro quadrado">
+            <div class="faixa__trilho">
+              <span class="faixa__marcador" data-pos="{{ pos_mediana_pct }}"></span>
             </div>
-            <p class="serie__painel-dica">Toque ou passe o mouse nos pontos para ver outros meses</p>
+            <div class="faixa__rotulos">
+              <span>R$ {{ p25_fmt }}</span>
+              <span class="faixa__rotulos-meio">a maioria das vendas</span>
+              <span>R$ {{ p75_fmt }}</span>
+            </div>
           </div>
         {% endif %}
 
-        <p class="serie__eixo">Escala do gráfico: R$&#160;{{ grafico_serie.rotulo_base }} a R$&#160;{{ grafico_serie.rotulo_topo }} por m²</p>
-        <svg class="serie__grafico" viewBox="0 0 {{ grafico_serie.largura }} {{ grafico_serie.altura }}"
-             role="img" aria-label="Gráfico de linha da evolução mensal do valor típico por metro quadrado">
-          <line class="serie__grade" x1="0" y1="{{ grafico_serie.y_topo }}"
-                x2="{{ grafico_serie.largura }}" y2="{{ grafico_serie.y_topo }}" />
-          <line class="serie__grade" x1="0" y1="{{ grafico_serie.y_base }}"
-                x2="{{ grafico_serie.largura }}" y2="{{ grafico_serie.y_base }}" />
-          {% for pontos_linha in grafico_serie.segmentos %}
-            <polyline class="serie__linha" points="{{ pontos_linha }}" fill="none" />
-          {% endfor %}
-          {% for p in grafico_serie.pontos %}
-            {% if p.tem_dado %}
-              <g class="serie__ponto-grupo{% if p.ativo %} serie__ponto-grupo--ativo{% endif %}"
-                 tabindex="0" role="button"
-                 aria-label="{{ p.mes_rotulo }}: R$ {{ p.valor_fmt }}/m², {{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}{% if p.fraco %}, mediana pouco confiável{% endif %}"
-                 data-mes="{{ p.mes_rotulo }}"
-                 data-valor="R$&#160;{{ p.valor_fmt }}/m²"
-                 data-n="{{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}"
-                 data-fraco="{% if p.fraco %}1{% else %}0{% endif %}">
-                <circle class="serie__alvo" cx="{{ p.x }}" cy="{{ p.y }}" r="16" />
-                <circle class="serie__ponto{% if p.fraco %} serie__ponto--fraco{% endif %}"
-                        cx="{{ p.x }}" cy="{{ p.y }}" r="{% if p.fraco %}2.5{% else %}3.5{% endif %}">
-                  <title>{{ p.mes_rotulo }}: R$ {{ p.valor_fmt }}/m² ({{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}){% if p.fraco %} — poucas vendas, mediana pouco confiável{% endif %}</title>
-                </circle>
-              </g>
-            {% endif %}
-            <text class="serie__rotulo-mes" x="{{ p.x }}" y="{{ grafico_serie.y_rotulos }}" text-anchor="{{ p.ancora }}">{{ p.mes_rotulo }}</text>
-          {% endfor %}
-        </svg>
-
-        <details class="serie__tabela-detalhes">
-          <summary class="serie__tabela-gatilho">Ver valores mês a mês em tabela</summary>
-          <div class="serie__tabela-envoltura">
-            <table class="serie__tabela">
-              <thead>
-                <tr>
-                  <th scope="col">Mês</th>
-                  <th scope="col">Mediana</th>
-                  <th scope="col">Vendas registradas</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for p in grafico_serie.pontos %}
-                  {% if p.tem_dado %}
-                    <tr>
-                      <td>{{ p.mes_rotulo }}</td>
-                      <td><strong>R$&#160;{{ p.valor_fmt }}/m²</strong></td>
-                      <td>
-                        {{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}
-                        {% if p.fraco %}<span class="serie__tabela-fraco">(poucas vendas)</span>{% endif %}
-                      </td>
-                    </tr>
-                  {% endif %}
-                {% endfor %}
-              </tbody>
-            </table>
+        {% if stats.confianca == "ok" %}
+          <p class="regiao__confianca">baseado em {{ stats.n_com_metrica }} transações</p>
+        {% elif stats.confianca == "insuficiente" %}
+          <div class="aviso" role="note">
+            Baseado em só {{ stats.n_com_metrica }} venda{{ stats.n_com_metrica|pluralize }} — número com confiança insuficiente. Trate como indicativo, não como referência.
           </div>
-        </details>
-      </section>
-    {% else %}
-      <p class="serie__vazio">Ainda não há meses suficientes para mostrar a evolução do valor típico
-        nesta região.</p>
-    {% endif %}
+        {% else %}
+          <div class="aviso" role="note">
+            Baseado em {{ stats.n_com_metrica }} vendas — amostra pequena, o número pode mudar bastante com as
+            próximas transações.
+          </div>
+        {% endif %}
 
-    <section class="mapa-regiao">
-      <p class="mapa-regiao__legenda">Mapa da região — veja a lista completa abaixo. Pontos mais claros são
-        aproximados (centroide da quadra, cerca de 100 m).</p>
-      <div id="mapa-regiao" class="mapa-regiao__mapa" aria-hidden="true"
-           data-slug="{{ regiao.slug }}" data-distrito="{{ regiao.distrito }}"></div>
-    </section>
+        <ul class="regiao__ressalvas">
+          <li>Esta área é a do cadastro do IPTU e inclui a quota-parte de áreas comuns — por isso este valor fica
+            naturalmente abaixo de índices de anúncio como o FipeZap.</li>
+          {% if periodo %}<li>Período coberto pelos dados: {{ periodo }}.</li>{% endif %}
+        </ul>
+      </div>
+
+      <div class="regiao__bloco-serie">
+        {% if grafico_serie %}
+          <section class="serie" aria-labelledby="serie-titulo">
+            <h2 id="serie-titulo" class="serie__titulo">Evolução do valor típico</h2>
+            <p class="serie__legenda">Mediana de R$/m² por mês, pela data do negócio (não pela data de
+              pagamento da guia). Pontos mais claros são meses com poucas vendas — a mediana ali é
+              menos confiável.</p>
+
+            {% if grafico_serie.ultimo_ponto %}
+              <div class="serie__painel" id="serie-painel" aria-live="polite">
+                <div class="serie__painel-info">
+                  <span class="serie__painel-mes" id="serie-painel-mes">{{ grafico_serie.ultimo_ponto.mes_rotulo }}</span>
+                  <span class="serie__painel-sep" aria-hidden="true">·</span>
+                  <strong class="serie__painel-valor" id="serie-painel-valor">R$&#160;{{ grafico_serie.ultimo_ponto.valor_fmt }}/m²</strong>
+                  <span class="serie__painel-n" id="serie-painel-n">({{ grafico_serie.ultimo_ponto.n }} transaç{{ grafico_serie.ultimo_ponto.n|pluralize:"ão,ões" }})</span>
+                  <span class="serie__painel-aviso{% if not grafico_serie.ultimo_ponto.fraco %} serie__painel-aviso--oculto{% endif %}" id="serie-painel-aviso">poucas vendas, mediana pouco confiável</span>
+                </div>
+                <p class="serie__painel-dica">Toque ou passe o mouse nos pontos para ver outros meses</p>
+              </div>
+            {% endif %}
+
+            <p class="serie__eixo">Escala do gráfico: R$&#160;{{ grafico_serie.rotulo_base }} a R$&#160;{{ grafico_serie.rotulo_topo }} por m²</p>
+            <svg class="serie__grafico" viewBox="0 0 {{ grafico_serie.largura }} {{ grafico_serie.altura }}"
+                 role="img" aria-label="Gráfico de linha da evolução mensal do valor típico por metro quadrado">
+              <line class="serie__grade" x1="0" y1="{{ grafico_serie.y_topo }}"
+                    x2="{{ grafico_serie.largura }}" y2="{{ grafico_serie.y_topo }}" />
+              <line class="serie__grade" x1="0" y1="{{ grafico_serie.y_base }}"
+                    x2="{{ grafico_serie.largura }}" y2="{{ grafico_serie.y_base }}" />
+              {% for pontos_linha in grafico_serie.segmentos %}
+                <polyline class="serie__linha" points="{{ pontos_linha }}" fill="none" />
+              {% endfor %}
+              {% for p in grafico_serie.pontos %}
+                {% if p.tem_dado %}
+                  <g class="serie__ponto-grupo{% if p.ativo %} serie__ponto-grupo--ativo{% endif %}"
+                     tabindex="0" role="button"
+                     aria-label="{{ p.mes_rotulo }}: R$ {{ p.valor_fmt }}/m², {{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}{% if p.fraco %}, mediana pouco confiável{% endif %}"
+                     data-mes="{{ p.mes_rotulo }}"
+                     data-valor="R$&#160;{{ p.valor_fmt }}/m²"
+                     data-n="{{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}"
+                     data-fraco="{% if p.fraco %}1{% else %}0{% endif %}">
+                    <circle class="serie__alvo" cx="{{ p.x }}" cy="{{ p.y }}" r="16" />
+                    <circle class="serie__ponto{% if p.fraco %} serie__ponto--fraco{% endif %}"
+                            cx="{{ p.x }}" cy="{{ p.y }}" r="{% if p.fraco %}2.5{% else %}3.5{% endif %}">
+                      <title>{{ p.mes_rotulo }}: R$ {{ p.valor_fmt }}/m² ({{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}){% if p.fraco %} — poucas vendas, mediana pouco confiável{% endif %}</title>
+                    </circle>
+                  </g>
+                {% endif %}
+                <text class="serie__rotulo-mes" x="{{ p.x }}" y="{{ grafico_serie.y_rotulos }}" text-anchor="{{ p.ancora }}">{{ p.mes_rotulo }}</text>
+              {% endfor %}
+            </svg>
+
+            <details class="serie__tabela-detalhes">
+              <summary class="serie__tabela-gatilho">Ver valores mês a mês em tabela</summary>
+              <div class="serie__tabela-envoltura">
+                <table class="serie__tabela">
+                  <thead>
+                    <tr>
+                      <th scope="col">Mês</th>
+                      <th scope="col">Mediana</th>
+                      <th scope="col">Vendas registradas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for p in grafico_serie.pontos %}
+                      {% if p.tem_dado %}
+                        <tr>
+                          <td>{{ p.mes_rotulo }}</td>
+                          <td><strong>R$&#160;{{ p.valor_fmt }}/m²</strong></td>
+                          <td>
+                            {{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}
+                            {% if p.fraco %}<span class="serie__tabela-fraco">(poucas vendas)</span>{% endif %}
+                          </td>
+                        </tr>
+                      {% endif %}
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </section>
+        {% else %}
+          <p class="serie__vazio">Ainda não há meses suficientes para mostrar a evolução do valor típico
+            nesta região.</p>
+        {% endif %}
+      </div>
+
+      <aside class="regiao__bloco-mapa">
+        <section class="mapa-regiao">
+          <p class="mapa-regiao__legenda">Mapa da região — pontos mais claros são
+            aproximados (centroide da quadra, cerca de 100 m).</p>
+          <div id="mapa-regiao" class="mapa-regiao__mapa" aria-hidden="true"
+               data-slug="{{ regiao.slug }}" data-distrito="{{ regiao.distrito }}"></div>
+        </section>
+      </aside>
+
+      <div class="regiao__bloco-transacoes">
+        {% include "radar/_lista_transacoes.html" with transacoes=transacoes pagina=pagina ordenar=ordenar vazio_texto=transacoes_vazio_texto %}
+      </div>
+    </div>
   {% else %}
     <div class="regiao__vazio">
       <p>Ainda não há vendas suficientes registradas no ITBI para calcular um valor típico em {{ regiao.nome }}.</p>
     </div>
-  {% endif %}
 
-  {% include "radar/_lista_transacoes.html" with transacoes=transacoes pagina=pagina ordenar=ordenar vazio_texto=transacoes_vazio_texto %}
+    {% include "radar/_lista_transacoes.html" with transacoes=transacoes pagina=pagina ordenar=ordenar vazio_texto=transacoes_vazio_texto %}
+  {% endif %}
 </div>
 {% endblock %}
 

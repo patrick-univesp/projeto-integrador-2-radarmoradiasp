@@ -214,3 +214,59 @@
   .regiao__nome { font-size: 2.25rem; }
   .regiao__numero { font-size: 4rem; }
 }
+
+.regiao__layout {
+  display: flex;
+  flex-direction: column;
+}
+
+.regiao__bloco-destaque { order: 1; }
+.regiao__bloco-serie { order: 2; }
+.regiao__bloco-mapa { order: 3; }
+.regiao__bloco-transacoes { order: 4; }
+
+@media (min-width: 1024px) {
+  .regiao {
+    max-width: 1120px;
+  }
+
+  .regiao__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(380px, 1fr);
+    grid-template-areas:
+      "destaque   mapa"
+      "serie      mapa"
+      "transacoes mapa";
+    column-gap: var(--e-8);
+    align-items: start;
+  }
+
+  .regiao__bloco-destaque {
+    grid-area: destaque;
+  }
+
+  .regiao__bloco-serie {
+    grid-area: serie;
+  }
+
+  .regiao__bloco-transacoes {
+    grid-area: transacoes;
+  }
+
+  .regiao__bloco-mapa {
+    grid-area: mapa;
+    position: sticky;
+    top: var(--e-6);
+  }
+
+  .regiao__bloco-mapa .mapa-regiao {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .regiao__bloco-mapa .mapa-regiao__mapa {
+    height: min(620px, calc(100vh - 140px));
+    min-height: 440px;
+  }
+}
