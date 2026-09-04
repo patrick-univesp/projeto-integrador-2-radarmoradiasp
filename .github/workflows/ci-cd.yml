@@ -3,6 +3,11 @@ name: CI/CD
 on:
   push:
     branches: ["main"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
+      - "LICENSE"
   pull_request:
     branches: ["main"]
   workflow_dispatch:
@@ -15,6 +20,9 @@ jobs:
     name: Testes e lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    concurrency:
+      group: test-${{ github.ref }}
+      cancel-in-progress: true
     env:
       DJANGO_SETTINGS_MODULE: config.settings.development
       SECRET_KEY: django-insecure-chave-so-para-ci
@@ -50,6 +58,9 @@ jobs:
     name: SAST (Bandit + pip-audit)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    concurrency:
+      group: sast-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
