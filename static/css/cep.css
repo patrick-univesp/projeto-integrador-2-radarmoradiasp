@@ -1,0 +1,19 @@
+.cep {
+  padding-block: var(--e-6) var(--e-12);
+  max-width: 640px;
+}
+
+.cep__rotulo { margin-bottom: var(--e-2); }
+
+.cep__nome {
+  font-size: var(--t-titulo);
+  font-weight: var(--peso-forte);
+  letter-spacing: -.015em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 720px) {
+  .cep { padding-block: var(--e-8) var(--e-12); }
+  .cep__nome { font-size: 2.25rem; }
+}

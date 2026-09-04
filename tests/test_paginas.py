@@ -92,6 +92,23 @@ def test_busca_aceita_termo(client):
     assert "Mooca" in r.content.decode()
 
 
+def test_busca_com_cep_de_8_digitos_redireciona_pro_cep(client):
+    r = client.get(reverse("radar:busca"), {"q": "01310100"})
+    assert r.status_code == 302
+    assert r.url == reverse("radar:cep", args=["01310100"])
+
+
+def test_busca_com_cep_formatado_com_hifen_tambem_redireciona(client):
+    r = client.get(reverse("radar:busca"), {"q": "01310-100"})
+    assert r.status_code == 302
+    assert r.url == reverse("radar:cep", args=["01310100"])
+
+
+def test_busca_com_digitos_incompletos_nao_redireciona(client):
+    r = client.get(reverse("radar:busca"), {"q": "013101"})
+    assert r.status_code == 200
+
+
 @pytest.mark.django_db
 def test_regiao_responde(client):
     r = client.get(reverse("radar:regiao", args=["mooca"]))
@@ -327,6 +344,55 @@ def test_regiao_lista_nao_usa_tabela_com_rolagem_lateral(client):
     _transacao_regiao()
     corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
     assert "<table" not in corpo
+
+
+# ---- /cep/<cep>/ (#28) ----
+
+
+@pytest.mark.django_db
+def test_cep_lista_as_transacoes_daquele_cep(client):
+    _transacao_regiao(cep="01310100", logradouro="Avenida Paulista", numero="1000")
+    corpo = client.get(reverse("radar:cep", args=["01310100"])).content.decode()
+    assert "Avenida Paulista, 1000" in corpo
+    assert "01310-100" in corpo
+
+
+@pytest.mark.django_db
+def test_cep_nao_filtra_por_qualidade_uso_ou_ano(client):
+    """Diferente da lista da região (#10, que sustenta uma mediana), a busca por
+    CEP é consulta de endereço direta — mostra tudo que existe naquele CEP,
+    mesmo qualidade!=0, uso não residencial ou fora da janela de anos."""
+    _transacao_regiao(cep="01310100", qualidade=1)
+    _transacao_regiao(cep="01310100", uso_grupo="Garagem")
+    _transacao_regiao(cep="01310100", ano_transacao=1998, data_transacao=dt.date(1998, 1, 1))
+    r = client.get(reverse("radar:cep", args=["01310100"]))
+    assert r.content.decode().count('class="transacoes__item"') == 3
+
+
+@pytest.mark.django_db
+def test_cep_sem_transacao_tem_estado_vazio_proprio(client):
+    corpo = client.get(reverse("radar:cep", args=["04538133"])).content.decode()
+    assert "Nenhuma transação encontrada para o CEP 04538-133" in corpo
+    assert "R$" not in corpo
+
+
+def test_cep_com_formato_invalido_da_404(client):
+    r = client.get(reverse("radar:cep", args=["abc"]))
+    assert r.status_code == 404
+
+
+@pytest.mark.django_db
+def test_cep_lista_pagina(client):
+    from radar.views import TRANSACOES_POR_PAGINA
+
+    total = TRANSACOES_POR_PAGINA + 3
+    for _ in range(total):
+        _transacao_regiao(cep="01310100")
+
+    pagina_1 = client.get(reverse("radar:cep", args=["01310100"])).content.decode()
+    pagina_2 = client.get(reverse("radar:cep", args=["01310100"]) + "?pagina=2").content.decode()
+    assert pagina_1.count('class="transacoes__item"') == TRANSACOES_POR_PAGINA
+    assert pagina_2.count('class="transacoes__item"') == total - TRANSACOES_POR_PAGINA
 
 
 @pytest.mark.django_db

@@ -1,7 +1,8 @@
+import re
 from decimal import Decimal
 
 from django.core.paginator import Paginator
-from django.http import Http404, HttpResponsePermanentRedirect, JsonResponse
+from django.http import Http404, HttpResponsePermanentRedirect, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django_ratelimit.decorators import ratelimit
@@ -29,6 +30,8 @@ ORDENACOES_TRANSACOES = {
     "valor": "-valor_transacao",
     "rsm2": "-rs_m2_construido",
 }
+
+CEP_REGEX = re.compile(r"^\d{8}$")
 
 _MESES = (
     "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -82,6 +85,23 @@ def _formatar_rs(valor):
     return f"-{texto}" if negativo else texto
 
 
+def _transacoes_formatadas(pagina):
+    """Uma página do Paginator -> dicts prontos para o partial
+    _lista_transacoes.html (mesmo formato para regiao() e cep())."""
+    return [
+        {
+            "sql": t.sql,
+            "endereco": f"{t.logradouro}, {t.numero}",
+            "area_construida": t.area_construida,
+            "uso_grupo": t.uso_grupo,
+            "data": t.data_transacao,
+            "valor_fmt": _formatar_rs(t.valor_transacao),
+            "rs_m2_fmt": _formatar_rs(t.rs_m2_construido),
+        }
+        for t in pagina.object_list
+    ]
+
+
 def inicio(request):
     return render(
         request,
@@ -95,6 +115,13 @@ def inicio(request):
 
 def busca(request):
     termo = (request.GET.get("q") or "").strip()
+    # Nenhuma rua de São Paulo começa com dígito — o campo já aplica essa
+    # máscara no cliente (static/js/autocomplete.js), mas resolve aqui de
+    # novo pra funcionar sem JS e em quem colar a URL direto.
+    if termo and termo[0].isdigit():
+        digitos = re.sub(r"\D", "", termo)
+        if CEP_REGEX.fullmatch(digitos):
+            return HttpResponseRedirect(reverse("radar:cep", args=[digitos]))
     return render(
         request,
         "radar/em_breve.html",
@@ -139,18 +166,6 @@ def regiao(request, slug):
     lista, _ = transacoes_da_regiao(Transacao.objects.filter(distrito_slug=slug), ano_min=stats["ano_min"])
     lista = lista.order_by(ORDENACOES_TRANSACOES[ordenar])
     pagina = Paginator(lista, TRANSACOES_POR_PAGINA).get_page(request.GET.get("pagina"))
-    transacoes = [
-        {
-            "sql": t.sql,
-            "endereco": f"{t.logradouro}, {t.numero}",
-            "area_construida": t.area_construida,
-            "uso_grupo": t.uso_grupo,
-            "data": t.data_transacao,
-            "valor_fmt": _formatar_rs(t.valor_transacao),
-            "rs_m2_fmt": _formatar_rs(t.rs_m2_construido),
-        }
-        for t in pagina.object_list
-    ]
 
     return render(
         request,
@@ -162,9 +177,10 @@ def regiao(request, slug):
             "p25_fmt": _formatar_rs(p25),
             "p75_fmt": _formatar_rs(p75),
             "pos_mediana_pct": pos_mediana_pct,
-            "transacoes": transacoes,
+            "transacoes": _transacoes_formatadas(pagina),
             "pagina": pagina,
             "ordenar": ordenar,
+            "transacoes_vazio_texto": f"Nenhuma transação encontrada com estes critérios em {r.nome}.",
             "periodo": (
                 _rotular_periodo(
                     stats["periodo_inicio"].year, stats["periodo_inicio"].month,
@@ -173,6 +189,30 @@ def regiao(request, slug):
                 if stats["periodo_inicio"]
                 else ""
             ),
+        },
+    )
+
+
+@ratelimit(key="ip", rate=TAXA_CONSULTA, block=False)
+def cep(request, cep):
+    if request.limited:
+        return render(request, "429.html", status=429)
+    if not CEP_REGEX.fullmatch(cep):
+        raise Http404(f"CEP {cep!r} inválido")
+
+    cep_fmt = f"{cep[:5]}-{cep[5:]}"
+    lista = Transacao.objects.filter(cep=cep).order_by("-data_transacao")
+    pagina = Paginator(lista, TRANSACOES_POR_PAGINA).get_page(request.GET.get("pagina"))
+
+    return render(
+        request,
+        "radar/cep.html",
+        {
+            "cep": cep,
+            "cep_fmt": cep_fmt,
+            "transacoes": _transacoes_formatadas(pagina),
+            "pagina": pagina,
+            "transacoes_vazio_texto": f"Nenhuma transação encontrada para o CEP {cep_fmt}.",
         },
     )
 

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block titulo %}CEP {{ cep_fmt }} · Radar da Moradia SP{% endblock %}
+{% block descricao %}{% if transacoes %}{{ pagina.paginator.count }} transação{{ pagina.paginator.count|pluralize }} registrada{{ pagina.paginator.count|pluralize }} no ITBI para o CEP {{ cep_fmt }}.{% else %}Nenhuma transação registrada no ITBI para o CEP {{ cep_fmt }}.{% endif %}{% endblock %}
+
+{% block og_titulo %}CEP {{ cep_fmt }} — Radar da Moradia SP{% endblock %}
+{% block og_descricao %}{% if transacoes %}{{ pagina.paginator.count }} transação{{ pagina.paginator.count|pluralize }} registrada{{ pagina.paginator.count|pluralize }} no ITBI para o CEP {{ cep_fmt }}.{% else %}Nenhuma transação registrada no ITBI para o CEP {{ cep_fmt }}.{% endif %}{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/regiao.css' %}">
+  <link rel="stylesheet" href="{% static 'css/cep.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+<div class="container cep">
+  <p class="mono cep__rotulo">CEP</p>
+  <h1 class="cep__nome">{{ cep_fmt }}</h1>
+
+  {% include "radar/_lista_transacoes.html" with transacoes=transacoes pagina=pagina vazio_texto=transacoes_vazio_texto %}
+</div>
+{% endblock %}

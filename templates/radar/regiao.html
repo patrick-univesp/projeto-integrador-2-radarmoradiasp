@@ -62,52 +62,6 @@
     </div>
   {% endif %}
 
-  <section class="transacoes" aria-labelledby="transacoes-titulo">
-    <div class="transacoes__cabecalho">
-      <h2 id="transacoes-titulo" class="transacoes__titulo">Transações</h2>
-      {% if transacoes %}
-        <nav class="transacoes__ordenar" aria-label="ordenar transações por">
-          <a href="?ordenar=data" {% if ordenar == "data" %}aria-current="true"{% endif %}>data</a>
-          <a href="?ordenar=valor" {% if ordenar == "valor" %}aria-current="true"{% endif %}>valor</a>
-          <a href="?ordenar=rsm2" {% if ordenar == "rsm2" %}aria-current="true"{% endif %}>R$/m²</a>
-        </nav>
-      {% endif %}
-    </div>
-
-    {% if transacoes %}
-      <ul class="transacoes__lista">
-        {% for t in transacoes %}
-          <li class="transacoes__item">
-            <p class="transacoes__endereco">{{ t.endereco }}</p>
-            <dl class="transacoes__grade">
-              <div><dt>valor</dt><dd>R$&nbsp;{{ t.valor_fmt }}</dd></div>
-              <div><dt>R$/m²</dt><dd>{% if t.rs_m2_fmt %}R$&nbsp;{{ t.rs_m2_fmt }}{% else %}<span aria-label="não aplicável">—</span>{% endif %}</dd></div>
-              <div><dt>área construída</dt><dd>{% if t.area_construida %}{{ t.area_construida }}&nbsp;m²{% else %}—{% endif %}</dd></div>
-              <div><dt>tipo</dt><dd>{{ t.uso_grupo|default:"—" }}</dd></div>
-              <div><dt>data</dt><dd>{{ t.data|date:"d/m/Y"|default:"—" }}</dd></div>
-            </dl>
-          </li>
-        {% endfor %}
-      </ul>
-
-      {% if pagina.paginator.num_pages > 1 %}
-        <nav class="transacoes__paginacao" aria-label="paginação de transações">
-          {% if pagina.has_previous %}
-            <a href="?ordenar={{ ordenar }}&amp;pagina={{ pagina.previous_page_number }}">← anterior</a>
-          {% else %}
-            <span class="transacoes__paginacao-desabilitado">← anterior</span>
-          {% endif %}
-          <span class="mono">página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
-          {% if pagina.has_next %}
-            <a href="?ordenar={{ ordenar }}&amp;pagina={{ pagina.next_page_number }}">próxima →</a>
-          {% else %}
-            <span class="transacoes__paginacao-desabilitado">próxima →</span>
-          {% endif %}
-        </nav>
-      {% endif %}
-    {% else %}
-      <p class="transacoes__vazio">Nenhuma transação encontrada com estes critérios em {{ regiao.nome }}.</p>
-    {% endif %}
-  </section>
+  {% include "radar/_lista_transacoes.html" with transacoes=transacoes pagina=pagina ordenar=ordenar vazio_texto=transacoes_vazio_texto %}
 </div>
 {% endblock %}

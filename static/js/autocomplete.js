@@ -79,8 +79,29 @@
       });
   }
 
+  // Nenhuma rua de SP começa com dígito: primeiro caractere numérico vira CEP,
+  // sem sugestão nenhuma (#28) — só a máscara; a busca em si é o form submetendo.
+  function ehModoCep(valor) {
+    return /^\d/.test(valor);
+  }
+
+  function mascararCep(valor) {
+    const digitos = valor.replace(/\D/g, '').slice(0, 8);
+    return digitos.length > 5 ? digitos.slice(0, 5) + '-' + digitos.slice(5) : digitos;
+  }
+
   campo.addEventListener('input', function () {
-    const termo = campo.value.trim();
+    let termo = campo.value;
+
+    if (ehModoCep(termo)) {
+      const mascarado = mascararCep(termo);
+      if (mascarado !== termo) campo.value = mascarado;
+      clearTimeout(timeoutId);
+      fechar();
+      return;
+    }
+
+    termo = termo.trim();
     clearTimeout(timeoutId);
     if (!termo) {
       fechar();
