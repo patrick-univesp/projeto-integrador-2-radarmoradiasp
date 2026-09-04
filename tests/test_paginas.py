@@ -53,7 +53,16 @@ def test_500_renderiza_sem_contexto_de_requisicao():
     assert "{%" not in saida
 
 
-@pytest.mark.parametrize("nome", ["css/tokens.css", "css/base.css", "js/busca_animada.js"])
+@pytest.mark.parametrize(
+    "nome",
+    [
+        "css/tokens.css",
+        "css/base.css",
+        "css/transicao.css",
+        "css/erro.css",
+        "js/busca_animada.js",
+    ],
+)
 def test_estatico_existe(nome):
     from django.contrib.staticfiles import finders
 
@@ -63,8 +72,6 @@ def test_estatico_existe(nome):
 def test_inicio_carrega_busca_animada(client):
     corpo = client.get(reverse("radar:inicio")).content.decode()
     assert "busca_animada.js" in corpo
-
-
 
 
 def test_sem_script_inline(client):
@@ -77,7 +84,7 @@ def test_sem_script_inline(client):
 
 
 def test_css_nao_tem_cor_literal():
-    """Toda cor vive em tokens.css. Se base.css ganhar um hex, o tema escuro
+    """Toda cor vive em tokens.css. Se arquivos de CSS ganharem um hex, o tema escuro
     para de funcionar naquele ponto e ninguém percebe até a apresentação.
 
     Exceção: declarações de máscara. Ali a cor não é tinta — só o canal alfa
@@ -85,10 +92,14 @@ def test_css_nao_tem_cor_literal():
     valor que o tema possa querer trocar."""
     from pathlib import Path
 
-    css = Path("static/css/base.css").read_text()
-    sem_comentario = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
-    pintura = ";".join(
-        d for d in sem_comentario.split(";") if "mask" not in d.split(":")[0].lower()
-    )
-    assert not re.search(r"#[0-9A-Fa-f]{3,8}\b", pintura)
-    assert not re.search(r"\b(rgb|hsl|oklch)\(", pintura)
+    for css_file in Path("static/css").glob("*.css"):
+        if css_file.name in ("tokens.css", "admin-marca.css"):
+            continue
+        css = css_file.read_text()
+        sem_comentario = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        pintura = ";".join(
+            d for d in sem_comentario.split(";") if "mask" not in d.split(":")[0].lower()
+        )
+        assert not re.search(r"#[0-9A-Fa-f]{3,8}\b", pintura), f"{css_file.name} contém hex literal"
+        assert not re.search(r"\b(rgb|hsl|oklch)\(", pintura), f"{css_file.name} contém função de cor literal"
+

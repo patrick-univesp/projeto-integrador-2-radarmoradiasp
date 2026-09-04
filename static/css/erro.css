@@ -1,0 +1,112 @@
+/* Radar da Moradia SP — Página 404 customizada com mapa de São Paulo */
+
+.erro-404-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.erro-404 {
+  padding-block: var(--e-8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--e-6);
+  margin-block: auto;
+}
+
+@media (min-width: 768px) {
+  .erro-404 {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) minmax(auto, 500px);
+    justify-content: center;
+    align-items: center;
+    text-align: left;
+    gap: var(--e-10);
+    padding-block: var(--e-8);
+  }
+}
+
+.erro-404__ilustracao {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.erro-404__mapa-svg {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  display: block;
+}
+
+.erro-404__conteudo {
+  max-width: 540px;
+}
+
+.erro-404__badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--t-mono);
+  font-weight: var(--peso-medio);
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  padding: var(--e-1) var(--e-3);
+  border-radius: var(--raio-atalho);
+  margin-bottom: var(--e-4);
+  letter-spacing: .04em;
+}
+
+.erro-404__titulo {
+  font-size: var(--t-titulo);
+  font-weight: var(--peso-forte);
+  letter-spacing: -.015em;
+  color: var(--text);
+  line-height: 1.15;
+}
+
+.erro-404__texto {
+  margin-top: var(--e-4);
+  font-size: var(--t-corpo);
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+.erro-404__acoes {
+  margin-top: var(--e-6);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-3);
+}
+
+@media (max-width: 767px) {
+  .erro-404__acoes {
+    justify-content: center;
+  }
+}
+
+.erro-404__botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--alvo-toque);
+  padding-inline: var(--e-5);
+  background: var(--accent);
+  color: var(--accent-on);
+  border-radius: var(--raio-botao);
+  font-weight: var(--peso-forte);
+  font-size: var(--t-apoio);
+  text-decoration: none;
+  transition: background .15s ease;
+}
+
+.erro-404__botao:hover {
+  background: var(--accent-ink);
+  color: var(--accent-on);
+  text-decoration: none;
+}

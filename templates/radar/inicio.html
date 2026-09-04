@@ -1,7 +1,11 @@
 {% extends "base.html" %}
+{% load static %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/transicao.css' %}">
+{% endblock %}
 
 {% block conteudo %}
-{% load static %}
 <div class="hero-area">
   <div class="fundo-cadastral" aria-hidden="true"></div>
 
@@ -49,8 +53,11 @@
     </div>
   </div>
 </div>
+
+{% include "radar/transicao_busca.html" %}
 {% endblock %}
 
 {% block js %}
 <script src="{% static 'js/busca_animada.js' %}" defer></script>
+<script src="{% static 'js/transicao_busca.js' %}" defer></script>
 {% endblock %}

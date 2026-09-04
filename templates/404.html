@@ -1,9 +1,32 @@
 {% extends "base.html" %}
+{% load static %}
+
 {% block titulo %}Página não encontrada · Radar da Moradia SP{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/erro.css' %}">
+{% endblock %}
+
 {% block conteudo %}
-<div class="container simples">
-  <h1>Esta página não existe</h1>
-  <p>O endereço que você abriu não corresponde a nenhuma página do site.</p>
-  <p class="simples__acao"><a href="{% url 'radar:inicio' %}">Voltar para a busca</a></p>
+<div class="erro-404-area">
+  <div class="container erro-404">
+    <div class="erro-404__ilustracao" aria-hidden="true">
+      <img src="{% static 'img/sp-404.svg' %}"
+           alt="Ilustração do mapa de São Paulo indicando página fora do mapa (404)"
+           class="erro-404__mapa-svg">
+    </div>
+
+    <div class="erro-404__conteudo">
+      <span class="erro-404__badge mono">erro 404 · fora do mapa</span>
+      <h1 class="erro-404__titulo">Esta página não existe</h1>
+      <p class="erro-404__texto">
+        O endereço acessado não corresponde a nenhuma página ou coordenada cadastrada no Radar da Moradia. Ele pode ter sido digitado incorretamente ou pertencer a uma localidade fora do município de São Paulo.
+      </p>
+
+      <div class="erro-404__acoes">
+        <a class="erro-404__botao" href="{% url 'radar:inicio' %}">Voltar para o início</a>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}

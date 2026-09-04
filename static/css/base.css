@@ -416,6 +416,7 @@ main {
 .simples p { margin-top: var(--e-4); color: var(--text-2); }
 .simples__acao { margin-top: var(--e-6); }
 
+
 @media (min-width: 720px) {
   .hero { padding-block: var(--e-12); }
   .hero__titulo { font-size: 2rem; }
@@ -440,3 +441,4 @@ main {
   .hero__atalhos-titulo { flex: none; margin: 0 var(--e-1) 0 0; }
   .contexto { text-align: left; margin-top: 72px; max-width: 980px; margin-inline: auto; }
 }
+
