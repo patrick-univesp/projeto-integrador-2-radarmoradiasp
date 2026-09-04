@@ -97,61 +97,49 @@ def _zero():
     return dict.fromkeys(_CONTADORES, 0)
 
 
-def carregar(arquivo, abas=None, *, blocos=2000, limite=None, substituir_mes=False,
-             limpar=False, dry_run=False, sem_geo=False, base_dir_geo=None, progresso=None):
-    """Carga completa. Lê o ``.xlsx`` uma vez e agrupa as linhas por setor
-    fiscal, para carregar a referência geo de **um setor por vez** (~poucos MB)
-    em vez da cidade inteira (~450 MB). Aceita abas de qualquer ano (``JAN-2025``,
-    ``MAR-2024``…). ``progresso(dict)`` roda a cada bloco. Devolve o resumo —
-    ``resumo["por_mes"]`` tem a quebra por mês da guia, para reconciliar com a
-    planilha. É esta função que a tela de admin reusa.
+def _ler_aba(pagina, limite, cont, m):
+    """Passe 1 de um mês: agrupa as linhas cruas por setor fiscal, para o passe 2
+    carregar a referência geo de **um setor por vez** (~poucos MB) em vez da cidade
+    inteira (~450 MB). O buffer é de um mês só (~22 MB), então a memória não cresce
+    com o número de abas da planilha.
     """
-    t0 = time.monotonic()
-    wb = openpyxl.load_workbook(arquivo, read_only=True, data_only=True)
-    disponiveis = _abas_mensais(wb)
-    alvo = [a for a in disponiveis if a in abas] if abas else disponiveis
-    if abas and not alvo:
-        wb.close()
-        raise CommandError(f"nenhuma das abas {abas} existe em {arquivo} (tem: {disponiveis})")
+    por_setor: dict[str, list] = {}
+    n = 0
+    for bruta in pagina.iter_rows(min_row=2, values_only=True):
+        if bruta[C_SQL] is None:
+            continue
+        if limite and n >= limite:
+            break
+        n += 1
+        cont["lidas"] += 1
+        m["lidas"] += 1
+        sql = coercao.para_sql(bruta[C_SQL])
+        if not sql:
+            cont["descartadas"] += 1
+            m["descartadas"] += 1
+            continue
+        por_setor.setdefault(sql[:3], []).append(bruta)
+    return por_setor
 
-    cont = _zero()
-    por_mes: dict[str, dict] = {}
-    por_setor: dict[str, list] = {}  # setor -> [(bruta, ano_guia, mes_guia), ...]
-    meses = set()
-    for aba in alvo:
-        ano_guia, mes_guia = int(aba[4:]), coercao.mes_guia(aba)
-        meses.add((ano_guia, mes_guia))
-        m = por_mes.setdefault(f"{ano_guia}-{mes_guia:02d}", _zero())
-        n = 0
-        for bruta in wb[aba].iter_rows(min_row=2, values_only=True):
-            if bruta[C_SQL] is None:
-                continue
-            if limite and n >= limite:
-                break
-            n += 1
-            cont["lidas"] += 1
-            m["lidas"] += 1
-            sql = coercao.para_sql(bruta[C_SQL])
-            if not sql:
-                cont["descartadas"] += 1
-                m["descartadas"] += 1
-                continue
-            por_setor.setdefault(sql[:3], []).append((bruta, ano_guia, mes_guia))
-    wb.close()
 
-    if not dry_run:
-        if limpar:
-            Transacao.objects.all().delete()
-        elif substituir_mes:
-            for ano_guia, mes_guia in meses:
-                Transacao.objects.filter(ano_guia=ano_guia, mes_guia=mes_guia).delete()
+def _gravar_mes(por_setor, ano_guia, mes_guia, cont, m, *, blocos, sem_geo,
+                base_dir_geo, dry_run, substituir_mes):
+    """Passe 2 de um mês: constrói as ``Transacao`` setor a setor e grava.
 
-    lote = []
+    O ``delete`` do mês e todos os ``bulk_create`` dele são a mesma transação: ou o
+    mês é substituído por inteiro, ou o banco fica como estava. Morrer no meio custa
+    re-executar o mês, nunca dado pela metade.
+
+    **A construção fica fora da transação de propósito:** ``transaction_mode`` é
+    ``IMMEDIATE``, o lock vem no ``BEGIN``, e minerar custa ~80% do tempo do mês —
+    dentro da transação, isso seguraria o lock ~20 s e a sessão do admin tomaria
+    ``database is locked``.
+    """
+    objetos = []
     for setor in sorted(por_setor):
         indices = ({}, {}, {}, {}) if sem_geo else geo_ref.indices_de_setor(setor, base_dir_geo)
-        for bruta, ano_guia, mes_guia in por_setor[setor]:
+        for bruta in por_setor.pop(setor):  # drena o buffer cru enquanto constrói
             obj = _linha_para_transacao(bruta, indices, ano_guia, mes_guia)
-            m = por_mes[f"{ano_guia}-{mes_guia:02d}"]
             cont["gravadas"] += 1
             m["gravadas"] += 1
             if obj.qualidade:
@@ -160,19 +148,73 @@ def carregar(arquivo, abas=None, *, blocos=2000, limite=None, substituir_mes=Fal
             if obj.geo_nivel == "--":
                 cont["sem_geo"] += 1
                 m["sem_geo"] += 1
-            lote.append(obj)
-            if len(lote) >= blocos:
-                if not dry_run:
-                    with transaction.atomic():
-                        Transacao.objects.bulk_create(lote, batch_size=blocos)
-                lote.clear()
-                if progresso:
-                    progresso(dict(cont))
-    if lote and not dry_run:
-        with transaction.atomic():
-            Transacao.objects.bulk_create(lote, batch_size=blocos)
+            objetos.append(obj)
 
-    resumo = {"total": cont, "por_mes": por_mes, "setores": len(por_setor),
+    if dry_run:
+        return
+    if substituir_mes and not objetos:
+        return  # aba vazia não apaga o mês que já está no banco
+
+    with transaction.atomic():
+        if substituir_mes:
+            Transacao.objects.filter(ano_guia=ano_guia, mes_guia=mes_guia).delete()
+        for i in range(0, len(objetos), blocos):
+            Transacao.objects.bulk_create(objetos[i:i + blocos], batch_size=blocos)
+
+
+def carregar(arquivo, abas=None, *, blocos=2000, limite=None, substituir_mes=False,
+             limpar=False, dry_run=False, sem_geo=False, base_dir_geo=None, progresso=None):
+    """Carga completa, **uma aba (um mês da guia) por vez**.
+
+    Cada aba é lida, minerada e gravada antes de a próxima começar, e o mês
+    inteiro entra numa transação só (ver ``_gravar_mes``). Duas consequências:
+    a memória é O(linhas de um mês), independente de quantos anos a planilha
+    tenha; e um mês nunca fica meio carregado.
+
+    Aceita abas de qualquer ano (``JAN-2025``, ``MAR-2024``…). ``progresso(dict)``
+    roda ao fim de cada mês — os contadores só andam depois do *commit*, então
+    nunca mostram linha que ainda pode sumir num *rollback*. Devolve o resumo;
+    ``resumo["por_mes"]`` tem a quebra por mês da guia, para reconciliar com a
+    planilha. É esta função que a tela de admin reusa.
+    """
+    if limite and (substituir_mes or limpar):
+        # Apagaria o mês inteiro e reporia só N linhas — perda de dados, não atalho.
+        raise CommandError("--limite não pode ser usado com --substituir-mes nem --limpar")
+    if limpar and substituir_mes:
+        raise CommandError("--limpar e --substituir-mes são exclusivos: --limpar já apaga tudo")
+
+    t0 = time.monotonic()
+    wb = openpyxl.load_workbook(arquivo, read_only=True, data_only=True)
+    try:
+        disponiveis = _abas_mensais(wb)
+        alvo = [a for a in disponiveis if a in abas] if abas else disponiveis
+        if abas and not alvo:
+            raise CommandError(f"nenhuma das abas {abas} existe em {arquivo} (tem: {disponiveis})")
+
+        cont = _zero()
+        por_mes: dict[str, dict] = {}
+        setores = set()
+
+        if limpar and not dry_run:
+            Transacao.objects.all().delete()
+
+        for aba in alvo:
+            ano_guia, mes_guia = int(aba[4:]), coercao.mes_guia(aba)
+            m = por_mes.setdefault(f"{ano_guia}-{mes_guia:02d}", _zero())
+
+            por_setor = _ler_aba(wb[aba], limite, cont, m)
+            setores.update(por_setor)
+            _gravar_mes(
+                por_setor, ano_guia, mes_guia, cont, m,
+                blocos=blocos, sem_geo=sem_geo, base_dir_geo=base_dir_geo,
+                dry_run=dry_run, substituir_mes=substituir_mes,
+            )
+            if progresso:
+                progresso(dict(cont))
+    finally:
+        wb.close()
+
+    resumo = {"total": cont, "por_mes": por_mes, "setores": len(setores),
               "segundos": round(time.monotonic() - t0, 1), "pico_mb": round(_pico_mb())}
     if progresso:
         progresso({"fim": True, **cont})

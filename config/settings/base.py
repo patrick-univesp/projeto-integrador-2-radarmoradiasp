@@ -74,7 +74,13 @@ DATABASES = {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": config("DB_PATH", default=str(BASE_DIR / "db.sqlite3")),
         "OPTIONS": {
-            "init_command": "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;",
+            # A carga segura o lock de escrita por um mês inteiro; sem busy_timeout,
+            # um segundo escritor (sessão, axes) pega o padrão de 5 s e toma erro.
+            "init_command": (
+                "PRAGMA journal_mode=WAL;"
+                " PRAGMA synchronous=NORMAL;"
+                " PRAGMA busy_timeout=15000;"
+            ),
             "transaction_mode": "IMMEDIATE",
         },
     }

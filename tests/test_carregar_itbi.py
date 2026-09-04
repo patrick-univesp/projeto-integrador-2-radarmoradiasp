@@ -3,7 +3,9 @@
 from pathlib import Path
 
 import pytest
+from django.core.management.base import CommandError
 
+from radar.management.commands import carregar_itbi as cmd
 from radar.management.commands.carregar_itbi import carregar
 from radar.models import Transacao
 
@@ -102,3 +104,79 @@ def test_dry_run_nao_grava():
 def test_abas_filtra():
     _carregar(abas=["FEV-2026"])
     assert Transacao.objects.count() == 2
+
+
+@pytest.mark.django_db
+def test_falha_no_meio_da_recarga_nao_apaga_o_mes(monkeypatch):
+    """Antes o delete do mês rodava fora de transação: morrer no meio deixava o mês
+    apagado e só parcialmente reposto. É a propriedade que a carga por mês garante."""
+    _carregar()
+    antes = set(Transacao.objects.values_list("id", flat=True))
+    assert len(antes) == 12
+
+    original = cmd.Transacao.objects.bulk_create
+    chamadas = {"n": 0}
+
+    def morre_na_segunda(objs, **kw):
+        chamadas["n"] += 1
+        if chamadas["n"] == 2:
+            raise RuntimeError("morte simulada no meio da carga")
+        return original(objs, **kw)
+
+    monkeypatch.setattr(cmd.Transacao.objects, "bulk_create", morre_na_segunda)
+
+    with pytest.raises(RuntimeError):
+        _carregar(substituir_mes=True)
+
+    assert set(Transacao.objects.values_list("id", flat=True)) == antes
+
+
+@pytest.mark.django_db
+def test_grava_um_mes_por_vez(monkeypatch):
+    """O buffer é de um mês só — é isso que mantém a memória constante quando a
+    planilha tem muitos anos. Guarda contra reintroduzir o buffer global."""
+    original = cmd._gravar_mes
+    vistos = []
+
+    def espiao(por_setor, ano_guia, mes_guia, cont, m, **kw):
+        vistos.append(((ano_guia, mes_guia), sum(len(v) for v in por_setor.values())))
+        return original(por_setor, ano_guia, mes_guia, cont, m, **kw)
+
+    monkeypatch.setattr(cmd, "_gravar_mes", espiao)
+    _carregar()
+
+    assert sorted(vistos) == [((2025, 3), 2), ((2026, 1), 8), ((2026, 2), 2)]
+
+
+@pytest.mark.django_db
+def test_limite_vale_por_aba():
+    _carregar(limite=1)
+    assert Transacao.objects.count() == 3
+
+
+@pytest.mark.django_db
+def test_limite_com_substituir_mes_recusa():
+    """--limite apagaria o mês e reporia só N linhas."""
+    with pytest.raises(CommandError):
+        _carregar(limite=1, substituir_mes=True)
+    with pytest.raises(CommandError):
+        _carregar(limite=1, limpar=True)
+
+
+@pytest.mark.django_db
+def test_limpar_e_substituir_mes_sao_exclusivos():
+    with pytest.raises(CommandError):
+        _carregar(limpar=True, substituir_mes=True)
+
+
+@pytest.mark.django_db
+def test_aba_sem_linhas_validas_nao_apaga_o_mes(monkeypatch):
+    """Aba vazia não pode apagar o mês: com a gravação atômica o delete é comitado."""
+    _carregar()
+    antes = set(Transacao.objects.values_list("id", flat=True))
+
+    original = cmd._ler_aba
+    monkeypatch.setattr(cmd, "_ler_aba", lambda *a, **k: (original(*a, **k), {})[1])
+
+    _carregar(substituir_mes=True)
+    assert set(Transacao.objects.values_list("id", flat=True)) == antes
