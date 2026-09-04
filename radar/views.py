@@ -33,6 +33,15 @@ ORDENACOES_TRANSACOES = {
 
 CEP_REGEX = re.compile(r"^\d{8}$")
 
+# Sem teto, um distrito grande manda todos os pontos de uma vez pro navegador
+# desenhar. 500 é generoso (a base tem ~1.400 transações/distrito no total,
+# sem filtro nenhum); corte por data decrescente, mesmo critério da lista.
+LIMITE_PONTOS_MAPA = 500
+
+# T4 = centroide da quadra fiscal inteira, ~100 m — a única faixa que o RF6
+# pede pra marcar como aproximada; T1–T3 já são específicas de lote/endereço.
+GEO_NIVEL_APROXIMADO = "T4"
+
 _MESES = (
     "janeiro", "fevereiro", "março", "abril", "maio", "junho",
     "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
@@ -85,16 +94,19 @@ def _formatar_rs(valor):
     return f"-{texto}" if negativo else texto
 
 
+def _endereco(t):
+    # numero="" é "sem numeração" de verdade (coercao.para_numero_porta zera os
+    # códigos 0/99999 do cadastro, comum em Terreno) — "s/n", não vírgula solta.
+    return f"{t.logradouro}, {t.numero}" if t.numero else f"{t.logradouro}, s/n"
+
+
 def _transacoes_formatadas(pagina):
     """Uma página do Paginator -> dicts prontos para o partial
     _lista_transacoes.html (mesmo formato para regiao() e cep())."""
     return [
         {
             "sql": t.sql,
-            # numero="" é "sem numeração" de verdade (coercao.para_numero_porta
-            # zera os códigos 0/99999 do cadastro, comum em Terreno) — "s/n",
-            # não vírgula solta.
-            "endereco": f"{t.logradouro}, {t.numero}" if t.numero else f"{t.logradouro}, s/n",
+            "endereco": _endereco(t),
             "area_construida": t.area_construida,
             "uso_grupo": t.uso_grupo,
             "data": t.data_transacao,
@@ -194,6 +206,39 @@ def regiao(request, slug):
             ),
         },
     )
+
+
+@ratelimit(key="ip", rate=TAXA_CONSULTA, block=False)
+def pontos_regiao(request, slug):
+    """GeoJSON dos pontos da região pro mapa (#12). Mesmo filtro de base da
+    lista/mediana (transacoes_da_regiao) — o mapa ilustra o mesmo número, não
+    uma amostra à parte —, mais o corte que só o mapa precisa: só quem tem
+    coordenada entra (#12: "sem coordenada não vai pro mapa mas continua na
+    lista e na estatística")."""
+    if request.limited:
+        return JsonResponse({"type": "FeatureCollection", "features": []}, status=429)
+    if POR_SLUG.get(slug) is None:
+        raise Http404(f"região {slug!r} não existe")
+
+    lista, _ = transacoes_da_regiao(Transacao.objects.filter(distrito_slug=slug))
+    lista = lista.exclude(lat__isnull=True).exclude(lon__isnull=True).order_by("-data_transacao")
+    lista = lista[:LIMITE_PONTOS_MAPA]
+
+    features = [
+        {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [t.lon, t.lat]},
+            "properties": {
+                "endereco": _endereco(t),
+                "valor_fmt": _formatar_rs(t.valor_transacao),
+                "rs_m2_fmt": _formatar_rs(t.rs_m2_construido),
+                "data": t.data_transacao.strftime("%d/%m/%Y") if t.data_transacao else None,
+                "aproximado": t.geo_nivel == GEO_NIVEL_APROXIMADO,
+            },
+        }
+        for t in lista
+    ]
+    return JsonResponse({"type": "FeatureCollection", "features": features})
 
 
 @ratelimit(key="ip", rate=TAXA_CONSULTA, block=False)

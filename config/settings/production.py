@@ -1,3 +1,4 @@
+from csp.constants import NONE, SELF
 from decouple import config
 
 from .base import *  # noqa: F403
@@ -24,6 +25,40 @@ CSRF_TRUSTED_ORIGINS = [
 
 MIDDLEWARE.insert(0, "django.middleware.gzip.GZipMiddleware")  # noqa: F405
 MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")  # noqa: F405
+
+# "csp" fica fora do INSTALLED_APPS de proposito, mesmo raciocinio do
+# django_ratelimit em base.py: o middleware le CONTENT_SECURITY_POLICY direto
+# das settings, nao precisa do app registrado — so os checks do app dependem
+# disso, e sao so avisos de formato de settings antigo, nada que valha o
+# registro.
+MIDDLEWARE.append("csp.middleware.CSPMiddleware")  # noqa: F405
+
+# Issue #11. Vendorizado em static/vendor/ (sem CDN pra JS/CSS); os tiles do
+# mapa (#12) sao externos por decisao — CARTO Positron (vetorial) sobre
+# OpenStreetMap, unico tema claro do projeto (interface.md). Dominios exatos
+# conferidos no style.json de producao do CARTO: basemaps.cartocdn.com serve o
+# style.json inicial, tiles-{a..d}.basemaps.cartocdn.com os tiles/sprite/glyphs
+# — o wildcard cobre os dois niveis de subdominio.
+_CARTO = ("https://basemaps.cartocdn.com", "https://*.basemaps.cartocdn.com")
+
+CONTENT_SECURITY_POLICY = {
+    "DIRECTIVES": {
+        "default-src": [SELF],
+        "script-src": [SELF],
+        "style-src": [SELF],
+        "font-src": [SELF],
+        # Ícones dos controles do MapLibre (zoom, bussola) sao data: URI no
+        # CSS vendorizado.
+        "img-src": [SELF, "data:", *_CARTO],
+        "connect-src": [SELF, *_CARTO],
+        # MapLibre roda o parser de tile numa Web Worker criada via blob:.
+        "worker-src": [SELF, "blob:"],
+        "object-src": [NONE],
+        "base-uri": [SELF],
+        "form-action": [SELF],
+        "frame-ancestors": [NONE],
+    }
+}
 
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},

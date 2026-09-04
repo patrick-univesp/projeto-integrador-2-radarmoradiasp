@@ -183,13 +183,15 @@ def test_regiao_mostra_valor_tipico_faixa_e_confianca(client):
 @pytest.mark.django_db
 def test_regiao_marcador_da_faixa_usa_ponto_decimal(client):
     """LANGUAGE_CODE="pt-br" localiza número cru no template (vírgula em vez de
-    ponto) — "left: 50,0%" é CSS inválido e o navegador descarta a declaração
-    inteira. O marcador da faixa tem que sair do view já como string com ponto."""
+    ponto) — "data-pos="50,0"" viraria "left: 50,0%" via JS, CSS inválido, e o
+    navegador descarta a declaração inteira. O marcador tem que sair do view já
+    como string com ponto. Desde a #12, a posição vai num data-attribute (JS via
+    CSSOM), não mais em <style> inline — a CSP de produção bloqueia inline."""
     for i in range(30):
         _transacao_regiao(rs_m2_construido=Decimal(8000 + i * 100))
     corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
-    assert re.search(r'left: \d+\.\d%;', corpo)
-    assert ",0%" not in corpo and ",5%" not in corpo
+    assert re.search(r'data-pos="\d+\.\d"', corpo)
+    assert 'data-pos="50,0"' not in corpo and ',5"' not in corpo
 
 
 @pytest.mark.django_db
@@ -344,6 +346,96 @@ def test_regiao_lista_nao_usa_tabela_com_rolagem_lateral(client):
     _transacao_regiao()
     corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
     assert "<table" not in corpo
+
+
+# ---- regiao/<slug>/pontos.geojson e mapa (#12) ----
+
+
+@pytest.mark.django_db
+def test_pontos_regiao_devolve_geojson_valido(client):
+    _transacao_regiao(lat=-23.55, lon=-46.61)
+    r = client.get(reverse("radar:pontos_regiao", args=["mooca"]))
+    assert r.status_code == 200
+    corpo = r.json()
+    assert corpo["type"] == "FeatureCollection"
+    assert len(corpo["features"]) == 1
+    feicao = corpo["features"][0]
+    assert feicao["geometry"] == {"type": "Point", "coordinates": [-46.61, -23.55]}
+    assert feicao["properties"]["endereco"]
+    assert feicao["properties"]["valor_fmt"]
+
+
+@pytest.mark.django_db
+def test_pontos_regiao_ignora_transacao_sem_coordenada(client):
+    """Critério da #12: sem coordenada não vai pro mapa, mas continua na lista
+    e na estatística — aqui só garante que o endpoint do mapa filtra."""
+    _transacao_regiao(lat=None, lon=None)
+    from radar.estatisticas import estatisticas_regiao
+    from radar.models import Transacao
+
+    stats = estatisticas_regiao(Transacao.objects.filter(distrito_slug="mooca"))
+    assert stats["n_transacoes"] == 1  # continua na estatística
+
+    corpo = client.get(reverse("radar:pontos_regiao", args=["mooca"])).json()
+    assert corpo["features"] == []
+
+
+@pytest.mark.django_db
+def test_pontos_regiao_marca_geo_nivel_t4_como_aproximado(client):
+    _transacao_regiao(lat=-23.55, lon=-46.61, geo_nivel="T4")
+    _transacao_regiao(lat=-23.56, lon=-46.62, geo_nivel="T1")
+    corpo = client.get(reverse("radar:pontos_regiao", args=["mooca"])).json()
+    aproximados = {f["properties"]["aproximado"] for f in corpo["features"]}
+    assert aproximados == {True, False}
+
+
+@pytest.mark.django_db
+def test_pontos_regiao_slug_inexistente_da_404(client):
+    r = client.get(reverse("radar:pontos_regiao", args=["nao-existe"]))
+    assert r.status_code == 404
+
+
+@pytest.mark.django_db
+def test_pontos_regiao_respeita_o_limite(client):
+    from radar.views import LIMITE_PONTOS_MAPA
+
+    for _ in range(LIMITE_PONTOS_MAPA + 5):
+        _transacao_regiao(lat=-23.55, lon=-46.61)
+
+    corpo = client.get(reverse("radar:pontos_regiao", args=["mooca"])).json()
+    assert len(corpo["features"]) == LIMITE_PONTOS_MAPA
+
+
+@pytest.mark.django_db
+def test_regiao_com_mediana_mostra_secao_do_mapa(client):
+    for i in range(30):
+        _transacao_regiao(rs_m2_construido=Decimal(8000 + i * 100))
+    corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    assert 'id="mapa-regiao"' in corpo
+    assert 'data-slug="mooca"' in corpo
+    assert 'data-distrito="MOOCA"' in corpo
+    assert "js/mapa_regiao.js" in corpo
+
+
+@pytest.mark.django_db
+def test_regiao_sem_mediana_nao_mostra_mapa(client):
+    """O mapa é subordinado ao número (#12: "entra abaixo da resposta, não no
+    lugar dela") — sem mediana calculável, não tem resposta pro mapa ilustrar."""
+    corpo = client.get(reverse("radar:regiao", args=["marsilac"])).content.decode()
+    assert 'id="mapa-regiao"' not in corpo
+    assert "js/mapa_regiao.js" not in corpo
+
+
+@pytest.mark.django_db
+def test_regiao_mapa_e_marcador_da_faixa_sem_script_ou_style_inline(client):
+    """A CSP de produção (#11) bloqueia script e style inline sem aviso. Nem o
+    marcador da faixa (#09) nem o mapa (#12) podem depender disso."""
+    for i in range(30):
+        _transacao_regiao(rs_m2_construido=Decimal(8000 + i * 100))
+    corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    assert "<style" not in corpo
+    scripts_inline = re.findall(r"<script(?![^>]*\ssrc=)[^>]*>(.*?)</script>", corpo, re.S)
+    assert not [t for t in scripts_inline if t.strip()], "há script inline no HTML"
 
 
 # ---- /cep/<cep>/ (#28) ----

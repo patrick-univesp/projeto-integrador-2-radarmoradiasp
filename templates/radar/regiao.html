@@ -9,10 +9,9 @@
 
 {% block css %}
   <link rel="stylesheet" href="{% static 'css/regiao.css' %}">
-  {% if pos_mediana_pct %}
-    <style>
-      .faixa__marcador { left: {{ pos_mediana_pct }}%; }
-    </style>
+  {% if mediana_fmt %}
+    <link rel="stylesheet" href="{% static 'vendor/maplibre-gl.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mapa.css' %}">
   {% endif %}
 {% endblock %}
 
@@ -28,7 +27,7 @@
     {% if p25_fmt and p75_fmt and p25_fmt != p75_fmt %}
       <div class="faixa" role="img" aria-label="A maioria das vendas ficou entre R$ {{ p25_fmt }} e R$ {{ p75_fmt }} por metro quadrado">
         <div class="faixa__trilho">
-          <span class="faixa__marcador"></span>
+          <span class="faixa__marcador" data-pos="{{ pos_mediana_pct }}"></span>
         </div>
         <div class="faixa__rotulos">
           <span>R$ {{ p25_fmt }}</span>
@@ -56,6 +55,13 @@
         naturalmente abaixo de índices de anúncio como o FipeZap.</li>
       {% if periodo %}<li>Período coberto pelos dados: {{ periodo }}.</li>{% endif %}
     </ul>
+
+    <section class="mapa-regiao">
+      <p class="mapa-regiao__legenda">Mapa da região — veja a lista completa abaixo. Pontos mais claros são
+        aproximados (centroide da quadra, cerca de 100 m).</p>
+      <div id="mapa-regiao" class="mapa-regiao__mapa" aria-hidden="true"
+           data-slug="{{ regiao.slug }}" data-distrito="{{ regiao.distrito }}"></div>
+    </section>
   {% else %}
     <div class="regiao__vazio">
       <p>Ainda não há vendas suficientes registradas no ITBI para calcular um valor típico em {{ regiao.nome }}.</p>
@@ -64,4 +70,12 @@
 
   {% include "radar/_lista_transacoes.html" with transacoes=transacoes pagina=pagina ordenar=ordenar vazio_texto=transacoes_vazio_texto %}
 </div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/faixa_marcador.js' %}" defer></script>
+{% if mediana_fmt %}
+  <script src="{% static 'vendor/maplibre-gl.js' %}" defer></script>
+  <script src="{% static 'js/mapa_regiao.js' %}" defer></script>
+{% endif %}
 {% endblock %}

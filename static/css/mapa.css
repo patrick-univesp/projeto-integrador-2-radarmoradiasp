@@ -1,0 +1,51 @@
+.mapa-regiao {
+  margin-top: var(--e-8);
+  padding-top: var(--e-6);
+  border-top: 1px solid var(--line);
+}
+.mapa-regiao__legenda {
+  font-size: var(--t-apoio);
+  color: var(--text-2);
+  margin-bottom: var(--e-3);
+}
+.mapa-regiao__mapa {
+  height: 280px;
+  border-radius: var(--raio-cartao);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.mapa-regiao__vazio {
+  padding: var(--e-4) var(--e-5);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--raio-cartao);
+  color: var(--text-2);
+  font-size: var(--t-apoio);
+}
+
+.mapa-regiao__popup {
+  font-family: var(--fonte-texto);
+  font-size: 0.8125rem;
+}
+.mapa-regiao__popup-endereco {
+  font-weight: var(--peso-forte);
+  color: var(--text);
+  margin: 0 0 var(--e-2);
+}
+.mapa-regiao__popup dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--e-1) var(--e-2);
+  margin: 0;
+}
+.mapa-regiao__popup dt { color: var(--text-3); }
+.mapa-regiao__popup dd { margin: 0; color: var(--text-2); }
+.mapa-regiao__popup-aviso {
+  margin: var(--e-2) 0 0;
+  color: var(--aviso);
+  font-size: 0.75rem;
+}
+
+@media (min-width: 720px) {
+  .mapa-regiao__mapa { height: 360px; }
+}
