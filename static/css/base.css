@@ -160,7 +160,7 @@ main {
   justify-content: space-between;
 }
 
-.busca { display: block; }
+.busca { display: block; position: relative; }
 .busca__caixa {
   display: flex;
   align-items: center;
@@ -233,6 +233,39 @@ main {
   white-space: nowrap;
 }
 .busca__botao:hover { background: var(--accent-ink); }
+
+.sugestoes {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + var(--e-2));
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--raio-cartao);
+  box-shadow: var(--shadow);
+  padding: var(--e-2);
+}
+.sugestoes__item {
+  padding: var(--e-2) var(--e-3);
+  border-radius: var(--raio-botao);
+  cursor: pointer;
+  font-size: .9375rem;
+  color: var(--text);
+}
+.sugestoes__item--ativo,
+.sugestoes__item:hover {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.sugestoes__vazio {
+  padding: var(--e-2) var(--e-3);
+  font-size: var(--t-apoio);
+  color: var(--text-3);
+}
 
 @media (max-width: 719px) {
   .busca__campo { flex: 1 1 auto; min-height: 40px; }

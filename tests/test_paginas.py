@@ -278,6 +278,7 @@ def test_500_renderiza_sem_contexto_de_requisicao():
         "css/regiao.css",
         "js/busca_animada.js",
         "js/contador_transacoes.js",
+        "js/autocomplete.js",
     ],
 )
 def test_estatico_existe(nome):
@@ -296,6 +297,23 @@ def test_inicio_carrega_busca_animada(client):
 def test_inicio_carrega_contador_de_transacoes(client):
     corpo = client.get(reverse("radar:inicio")).content.decode()
     assert '<script src="/static/js/contador_transacoes.js" defer></script>' in corpo
+
+
+@pytest.mark.django_db
+def test_inicio_carrega_autocomplete(client):
+    corpo = client.get(reverse("radar:inicio")).content.decode()
+    assert '<script src="/static/js/autocomplete.js" defer></script>' in corpo
+
+
+@pytest.mark.django_db
+def test_campo_de_busca_e_um_combobox_acessivel(client):
+    """Sem isso o autocomplete é invisível pra leitor de tela — a lista de
+    sugestões existe no DOM, mas nada anuncia que ela existe."""
+    corpo = client.get(reverse("radar:inicio")).content.decode()
+    assert 'role="combobox"' in corpo
+    assert 'aria-controls="sugestoes-lista"' in corpo
+    assert 'id="sugestoes-lista"' in corpo
+    assert 'role="listbox"' in corpo
 
 
 def test_contador_respeita_reduced_motion():

@@ -38,9 +38,12 @@ css/transicao.css é só da transição cinematográfica, desligada por enquanto
           <span class="busca__lupa" aria-hidden="true"></span>
           <input class="busca__campo" type="search" id="q" name="q"
                  placeholder="Digite um bairro, rua ou CEP de São Paulo"
-                 autocomplete="off" enterkeyhint="search" required>
+                 autocomplete="off" enterkeyhint="search" required
+                 role="combobox" aria-expanded="false" aria-autocomplete="list"
+                 aria-controls="sugestoes-lista">
           <button class="busca__botao" type="submit">Buscar</button>
         </div>
+        <ul id="sugestoes-lista" class="sugestoes" role="listbox" aria-label="Sugestões de região" hidden></ul>
       </form>
 
       {% if periodo %}
@@ -76,4 +79,5 @@ depois que a busca de verdade existir.
 {% block js %}
 <script src="{% static 'js/busca_animada.js' %}" defer></script>
 <script src="{% static 'js/contador_transacoes.js' %}" defer></script>
+<script src="{% static 'js/autocomplete.js' %}" defer></script>
 {% endblock %}
