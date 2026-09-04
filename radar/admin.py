@@ -3,7 +3,12 @@ from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 
-from radar.admin_carga import FormularioCarga, carga_em_andamento, iniciar_carga
+from radar.admin_carga import (
+    FormularioCarga,
+    carga_em_andamento,
+    iniciar_carga,
+    reconciliar_orfas,
+)
 from radar.models import CargaMensal, Transacao
 
 admin.site.site_header = "Radar da Moradia SP · administração"
@@ -46,6 +51,10 @@ class CargaMensalAdmin(admin.ModelAdmin):
     list_filter = ("status",)
     date_hierarchy = "iniciado_em"
     readonly_fields = ("resumo_por_mes",)
+
+    def get_queryset(self, request):
+        reconciliar_orfas()  # carga cuja thread morreu fica presa em "rodando"
+        return super().get_queryset(request)
 
     @admin.display(description="Por mês da guia (lidas / gravadas / descartadas / qual!=0 / sem geo)")
     def resumo_por_mes(self, obj):

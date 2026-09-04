@@ -4,6 +4,7 @@ Celery/Redis — ver ``docs/carga-itbi.md``.
 """
 
 import datetime as dt
+import logging
 import tempfile
 import threading
 from pathlib import Path
@@ -15,9 +16,17 @@ from django.utils import timezone
 from radar.management.commands.carregar_itbi import carregar
 from radar.models import CargaMensal
 
+logger = logging.getLogger(__name__)
+
 TAMANHO_MAX_MB = 40
 # Linha em RODANDO mais velha que isto = thread/processo morto; não bloqueia nova carga.
 RODANDO_EXPIRA = dt.timedelta(hours=2)
+
+INTERROMPIDA = (
+    "Carga interrompida: o processo morreu antes de terminar (reciclagem do worker, "
+    "deploy ou falta de memória). Nenhum mês fica meio carregado — cada mês é gravado "
+    "numa transação só —, então é seguro subir a planilha de novo."
+)
 
 
 class FormularioCarga(forms.Form):
@@ -42,10 +51,22 @@ class FormularioCarga(forms.Form):
         return f
 
 
-def carga_em_andamento() -> bool:
+def reconciliar_orfas() -> int:
+    """Marca como ``erro`` as cargas presas em ``pendente``/``rodando``.
+
+    A thread é ``daemon``: reciclagem do worker, deploy ou OOM matam a carga sem
+    passar pelo ``except``, e a linha diria "rodando" para sempre.
+    """
     limite = timezone.now() - RODANDO_EXPIRA
     return CargaMensal.objects.filter(
-        status__in=[CargaMensal.PENDENTE, CargaMensal.RODANDO], iniciado_em__gte=limite
+        status__in=[CargaMensal.PENDENTE, CargaMensal.RODANDO], iniciado_em__lt=limite
+    ).update(status=CargaMensal.ERRO, erro_msg=INTERROMPIDA, terminado_em=timezone.now())
+
+
+def carga_em_andamento() -> bool:
+    reconciliar_orfas()
+    return CargaMensal.objects.filter(
+        status__in=[CargaMensal.PENDENTE, CargaMensal.RODANDO]
     ).exists()
 
 
@@ -92,6 +113,8 @@ def _rodar(carga_pk, caminho, abas, substituir_mes):
             qualidade_ruim=t["ruins"], pico_mb=r["pico_mb"], por_mes=r["por_mes"],
         )
     except Exception as e:  # noqa: BLE001 — qualquer falha vira status de erro na linha
+        # A linha guarda só a mensagem; o traceback vai para o stdout do container.
+        logger.exception("carga %s falhou: %s", carga_pk, e)
         CargaMensal.objects.filter(pk=carga_pk).update(
             status=CargaMensal.ERRO, erro_msg=str(e)[:2000], terminado_em=timezone.now(),
         )

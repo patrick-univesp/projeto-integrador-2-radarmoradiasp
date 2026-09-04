@@ -44,5 +44,7 @@ LOGGING = {
     "loggers": {
         "django.security": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        # Sem isto o traceback da thread de carga se perde e a falha fica sem contexto.
+        "radar": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
