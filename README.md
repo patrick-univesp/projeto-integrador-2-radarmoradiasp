@@ -36,7 +36,7 @@ O município publica as **guias de ITBI pagas** (imposto sobre a transmissão de
 | **Geo**       | referência de lote/distrito pré-calculada offline e **versionada** em `radar/dados_geo/`; _lookup_ em runtime          |
 | **Frontend**  | HTML + CSS + JS, renderização no servidor; MapLibre GL no mapa (fase 4)                                                |
 | **Servidor**  | Gunicorn + WhiteNoise                                                                                                  |
-| **Segurança** | `django-axes` no login do admin; `.env` via `python-decouple`                                                          |
+| **Segurança** | `django-axes` no login do admin; `django-ratelimit` nos endpoints públicos; `.env` via `python-decouple`              |
 | **Qualidade** | pytest, pytest-django, ruff, djlint, bandit, pip-audit                                                                 |
 | **Deploy**    | GitHub Actions → GHCR → VM Oracle Cloud Always Free, atrás de Cloudflare Tunnel (sem porta exposta)                    |
 

@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.http import Http404, HttpResponsePermanentRedirect
 from django.shortcuts import render
 from django.urls import reverse
+from django_ratelimit.decorators import ratelimit
 
 from radar.estatisticas import estatisticas_regiao
 from radar.models import Transacao
@@ -11,6 +12,10 @@ from radar.regioes import APELIDOS, POR_SLUG
 # Slugs do registro canônico — nunca string solta, pra nenhum link da home
 # apontar pra um slug que a página da região não aceite.
 REGIOES_DESTAQUE_SLUGS = ("mooca", "itaim-bibi", "tatuape", "santana", "vila-mariana", "butanta")
+
+# Uma navegação por requisição — mais apertado que faria sentido pro autocomplete
+# (#06, que dispara várias por busca). Issue #07.
+TAXA_CONSULTA = "30/m"
 
 _MESES = (
     "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -91,7 +96,10 @@ def busca(request):
     )
 
 
+@ratelimit(key="ip", rate=TAXA_CONSULTA, block=False)
 def regiao(request, slug):
+    if request.limited:
+        return render(request, "429.html", status=429)
     if slug in APELIDOS:
         return HttpResponsePermanentRedirect(reverse("radar:regiao", args=[APELIDOS[slug]]))
     r = POR_SLUG.get(slug)

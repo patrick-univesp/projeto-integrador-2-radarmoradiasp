@@ -49,6 +49,20 @@ AXES_CLIENT_IP_CALLABLE = "config.ip.cliente_real"
 # so por usuario ficou de fora: qualquer um trancaria a conta da equipe.
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"], "ip_address"]
 
+# Limite de taxa nos endpoints publicos de consulta (issue #07). Mesmo callable do
+# axes acima: atras do Cloudflare Tunnel o REMOTE_ADDR e sempre 127.0.0.1.
+#
+# "django_ratelimit" fica de fora do INSTALLED_APPS de proposito: registrar o app
+# liga o check de sistema que reprova (Error) o cache padrao (LocMemCache, por
+# nao ser compartilhado entre processos) e derrubaria "manage.py runserver"/
+# "migrate"/os testes. Sem CACHES redis/memcached (infra que este projeto evita
+# de proposito — SQLite sem servidor, VM unica), o limite conta por worker do
+# gunicorn (WEB_CONCURRENCY=2 por padrao, scripts/entrypoint.sh): o teto real e
+# ate ~2x o valor nominal, nao um limite global exato. Aceitavel para o MVP —
+# ainda protege contra um loop batendo sem parar; nao contra um ataque
+# coordenado. Ver docs/local/issues/fechada/07-rate-limit.md.
+RATELIMIT_IP_META_KEY = "config.ip.cliente_real"
+
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 

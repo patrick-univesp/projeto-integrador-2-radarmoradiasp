@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block titulo %}Muitas requisições · Radar da Moradia SP{% endblock %}
+
+{% block conteudo %}
+<div class="container simples">
+  <h1>Muitas requisições</h1>
+  <div class="erro" role="alert">
+    Você fez pedidos demais em pouco tempo. Espere um instante e tente de novo.
+  </div>
+  <p class="simples__acao"><a href="{% url 'radar:inicio' %}">Voltar para o início</a></p>
+</div>
+{% endblock %}
