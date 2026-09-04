@@ -93,12 +93,18 @@ def _pico_mb():
 _CONTADORES = ("lidas", "gravadas", "descartadas", "ruins", "sem_geo")
 
 
+def _zero():
+    return dict.fromkeys(_CONTADORES, 0)
+
+
 def carregar(arquivo, abas=None, *, blocos=2000, limite=None, substituir_mes=False,
              limpar=False, dry_run=False, sem_geo=False, base_dir_geo=None, progresso=None):
     """Carga completa. Lê o ``.xlsx`` uma vez e agrupa as linhas por setor
     fiscal, para carregar a referência geo de **um setor por vez** (~poucos MB)
-    em vez da cidade inteira (~450 MB). ``progresso(dict)`` roda a cada bloco e no
-    fim de cada setor. Devolve o resumo — é esta função que a tela de admin reusa.
+    em vez da cidade inteira (~450 MB). Aceita abas de qualquer ano (``JAN-2025``,
+    ``MAR-2024``…). ``progresso(dict)`` roda a cada bloco. Devolve o resumo —
+    ``resumo["por_mes"]`` tem a quebra por mês da guia, para reconciliar com a
+    planilha. É esta função que a tela de admin reusa.
     """
     t0 = time.monotonic()
     wb = openpyxl.load_workbook(arquivo, read_only=True, data_only=True)
@@ -108,13 +114,14 @@ def carregar(arquivo, abas=None, *, blocos=2000, limite=None, substituir_mes=Fal
         wb.close()
         raise CommandError(f"nenhuma das abas {abas} existe em {arquivo} (tem: {disponiveis})")
 
-    cont = dict.fromkeys(_CONTADORES, 0)
-    # setor -> [(bruta, ano_guia, mes_guia), ...]
-    por_setor: dict[str, list] = {}
+    cont = _zero()
+    por_mes: dict[str, dict] = {}
+    por_setor: dict[str, list] = {}  # setor -> [(bruta, ano_guia, mes_guia), ...]
     meses = set()
     for aba in alvo:
         ano_guia, mes_guia = int(aba[4:]), coercao.mes_guia(aba)
         meses.add((ano_guia, mes_guia))
+        m = por_mes.setdefault(f"{ano_guia}-{mes_guia:02d}", _zero())
         n = 0
         for bruta in wb[aba].iter_rows(min_row=2, values_only=True):
             if bruta[C_SQL] is None:
@@ -123,9 +130,11 @@ def carregar(arquivo, abas=None, *, blocos=2000, limite=None, substituir_mes=Fal
                 break
             n += 1
             cont["lidas"] += 1
+            m["lidas"] += 1
             sql = coercao.para_sql(bruta[C_SQL])
             if not sql:
                 cont["descartadas"] += 1
+                m["descartadas"] += 1
                 continue
             por_setor.setdefault(sql[:3], []).append((bruta, ano_guia, mes_guia))
     wb.close()
@@ -142,26 +151,28 @@ def carregar(arquivo, abas=None, *, blocos=2000, limite=None, substituir_mes=Fal
         indices = ({}, {}, {}, {}) if sem_geo else geo_ref.indices_de_setor(setor, base_dir_geo)
         for bruta, ano_guia, mes_guia in por_setor[setor]:
             obj = _linha_para_transacao(bruta, indices, ano_guia, mes_guia)
+            m = por_mes[f"{ano_guia}-{mes_guia:02d}"]
+            cont["gravadas"] += 1
+            m["gravadas"] += 1
             if obj.qualidade:
                 cont["ruins"] += 1
+                m["ruins"] += 1
             if obj.geo_nivel == "--":
                 cont["sem_geo"] += 1
+                m["sem_geo"] += 1
             lote.append(obj)
             if len(lote) >= blocos:
                 if not dry_run:
                     with transaction.atomic():
                         Transacao.objects.bulk_create(lote, batch_size=blocos)
-                cont["gravadas"] += len(lote)
                 lote.clear()
                 if progresso:
                     progresso(dict(cont))
-    if lote:
-        if not dry_run:
-            with transaction.atomic():
-                Transacao.objects.bulk_create(lote, batch_size=blocos)
-        cont["gravadas"] += len(lote)
+    if lote and not dry_run:
+        with transaction.atomic():
+            Transacao.objects.bulk_create(lote, batch_size=blocos)
 
-    resumo = {"total": cont, "setores": len(por_setor),
+    resumo = {"total": cont, "por_mes": por_mes, "setores": len(por_setor),
               "segundos": round(time.monotonic() - t0, 1), "pico_mb": round(_pico_mb())}
     if progresso:
         progresso({"fim": True, **cont})
@@ -201,6 +212,13 @@ class Command(BaseCommand):
             )
         except FileNotFoundError as e:
             raise CommandError(str(e)) from e
+
+        self.stdout.write("\npor mês da guia (lidas / gravadas / descartadas / qual!=0 / sem geo):")
+        for chave, m in sorted(r["por_mes"].items()):
+            self.stdout.write(
+                f"  {chave}: {m['lidas']} / {m['gravadas']} / {m['descartadas']} / "
+                f"{m['ruins']} / {m['sem_geo']}"
+            )
 
         t = r["total"]
         self.stdout.write(self.style.SUCCESS(

@@ -89,7 +89,7 @@ def _rodar(carga_pk, caminho, abas, substituir_mes):
             status=CargaMensal.CONCLUIDO, terminado_em=timezone.now(),
             linhas_lidas=t["lidas"], linhas_gravadas=t["gravadas"],
             linhas_descartadas=t["descartadas"], sem_geo=t["sem_geo"],
-            qualidade_ruim=t["ruins"], pico_mb=r["pico_mb"],
+            qualidade_ruim=t["ruins"], pico_mb=r["pico_mb"], por_mes=r["por_mes"],
         )
     except Exception as e:  # noqa: BLE001 — qualquer falha vira status de erro na linha
         CargaMensal.objects.filter(pk=carga_pk).update(

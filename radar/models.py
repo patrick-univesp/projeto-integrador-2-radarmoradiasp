@@ -21,6 +21,9 @@ class CargaMensal(models.Model):
     sem_geo = models.IntegerField(default=0)
     qualidade_ruim = models.IntegerField(default=0)
     pico_mb = models.IntegerField(null=True)
+    # {"2026-07": {"lidas":, "gravadas":, "descartadas":, "ruins":, "sem_geo":}, ...}
+    # para reconciliar cada mês da guia com o total da planilha.
+    por_mes = models.JSONField(default=dict, blank=True)
     erro_msg = models.TextField(blank=True)
     criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True,
                                    on_delete=models.SET_NULL)

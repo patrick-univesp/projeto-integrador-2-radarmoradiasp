@@ -18,9 +18,9 @@ def _carregar(**kw):
 @pytest.mark.django_db
 def test_carrega_todas_as_linhas():
     r = _carregar()
-    assert r["total"]["lidas"] == 10
-    assert r["total"]["gravadas"] == 10
-    assert Transacao.objects.count() == 10
+    assert r["total"]["lidas"] == 12
+    assert r["total"]["gravadas"] == 12
+    assert Transacao.objects.count() == 12
 
 
 @pytest.mark.django_db
@@ -70,26 +70,31 @@ def test_flag_cadastro_defasado():
 
 
 @pytest.mark.django_db
-def test_ano_e_mes_da_guia():
-    _carregar()
+def test_multi_ano_e_reconciliacao_por_mes():
+    r = _carregar()
+    # abas de anos diferentes entram normalmente
+    assert Transacao.objects.filter(ano_guia=2025, mes_guia=3).count() == 2
     assert Transacao.objects.filter(ano_guia=2026, mes_guia=1).count() == 8
-    assert Transacao.objects.filter(ano_guia=2026, mes_guia=2).count() == 2
+    # ano_transacao (negócio) é independente do ano da guia
     antiga = Transacao.objects.get(valor_transacao=90000)
-    assert antiga.ano_transacao == 1997  # ano do negócio
-    assert antiga.mes_guia == 2  # mês da guia
+    assert (antiga.ano_transacao, antiga.ano_guia, antiga.mes_guia) == (1997, 2026, 2)
+    # o resumo traz a quebra por mês para bater com a planilha
+    assert r["por_mes"]["2025-03"]["lidas"] == 2
+    assert r["por_mes"]["2025-03"]["gravadas"] == 2
+    assert r["por_mes"]["2026-01"]["lidas"] == 8
 
 
 @pytest.mark.django_db
 def test_substituir_mes_e_idempotente():
     _carregar()
     _carregar(substituir_mes=True)
-    assert Transacao.objects.count() == 10
+    assert Transacao.objects.count() == 12
 
 
 @pytest.mark.django_db
 def test_dry_run_nao_grava():
     r = _carregar(dry_run=True)
-    assert r["total"]["lidas"] == 10
+    assert r["total"]["lidas"] == 12
     assert Transacao.objects.count() == 0
 
 

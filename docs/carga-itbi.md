@@ -116,15 +116,33 @@ mapa.
 ## A amostra de teste
 
 O CI exercita a carga ponta a ponta com uma amostra **sintética** —
-`tests/dados/amostra_itbi.xlsx` (10 linhas, 2 abas), montada à mão por
-`tests/dados/gerar_amostra_itbi.py`. É de propósito: hermética (não depende da
-planilha de 27 MB), cada caso difícil garantido por construção
+`tests/dados/amostra_itbi.xlsx` (12 linhas, 3 abas, incluindo `MAR-2025`), montada
+à mão por `tests/dados/gerar_amostra_itbi.py`. É de propósito: hermética (não
+depende da planilha de 27 MB), cada caso difícil garantido por construção
 (`setor < 100`, `bairro` vazio e lixo de complemento, grafia aglutinada, CEP com
 zero à esquerda, `rs_m2` que se aplica e que não, `uso` 0/20/74, colunas
-deslocadas, ano 1997 e 2026, geo T1/T3/`--`), e o recorte de geo que a acompanha
-(`tests/dados/dados_geo_amostra/`, 2 setores) fica minúsculo.
+deslocadas, ano de guia 2025 e 2026, ano de negócio 1997 e 2026, geo T1/T3/`--`), e
+o recorte de geo que a acompanha (`tests/dados/dados_geo_amostra/`, 2 setores) fica
+minúsculo.
 
 Para conferir a carga contra **dado real**:
 `python scripts/gerar_amostra.py "<planilha completa>.xlsx"` extrai ~150 linhas que
 cobrem os mesmos casos e escreve um `.xlsx`. Não mexe em geo; se for adotar como
 fixture, recorte também `radar/dados_geo/` para os setores dos SQLs escolhidos.
+
+---
+
+## Vários anos e reconciliação por mês
+
+As abas podem ser de qualquer ano (`JAN-2025`, `MAR-2024`, …) — o nome da aba
+(`MMM-YYYY`) é a única fonte de `ano_guia`/`mes_guia`. `--substituir-mes` recarrega
+um mês sem tocar nos outros anos.
+
+O resumo traz `por_mes` — lidas / gravadas / descartadas / `qual!=0` / sem geo por
+mês da guia — para bater com a contagem de cada aba da planilha e entender uma
+diferença. Onde aparece:
+
+- **no comando**, ao final;
+- **na linha `CargaMensal`** (campo `por_mes`, mostrado como tabela);
+- **no `/admin/radar/transacao/`**, filtrando por `ano_guia`/`mes_guia` (o admin
+  mostra a contagem do recorte no topo).

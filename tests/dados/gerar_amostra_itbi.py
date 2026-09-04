@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gera tests/dados/amostra_itbi.xlsx — planilha sintética minúscula (2 abas, 10
+"""Gera tests/dados/amostra_itbi.xlsx — planilha sintética minúscula (3 abas, 12
 linhas) montada à mão para exercitar os casos difíceis da carga. É a fixture do
 CI: hermética e o recorte de geo que a acompanha (tests/dados/dados_geo_amostra/)
 fica minúsculo.
@@ -75,11 +75,27 @@ LINHAS_FEV = [
      "Ativo Predial", 400, 12.0, 1.0, 200, 20, "APARTAMENTO EM CONDOMINIO", 25, "RESIDENCIAL VERTICAL", 2005],
 ]
 
+# A aplicação carrega planilhas de outros anos (2023–2025) — o nome da aba é a
+# única fonte do mês/ano da guia.
+LINHAS_MAR_2025 = [
+    [103604280, "R BRIG TOBIAS", 55, None, "REPUBLICA", None, 1103010, "1.Compra e venda",
+     310000, D(2025, 3, 12), 310000, 100, 310000, 310000, None, 0, "1º CRI", 9000,
+     "Ativo Predial", 180, 6.0, 1.0, 95, 10, "RESIDENCIA", 12, "RESIDENCIAL HORIZONTAL", 1980],
+    [16526701080, "R ARMANDO DUPRAT", 60, None, "JARDIM SAO LUIS", None, 5820000,
+     "1.Compra e venda", 450000, D(2025, 3, 20), 450000, 100, 450000, 450000, "1.SFH", 360000,
+     "18º CRI", 9100, "Ativo Predial", 220, 8.0, 1.0, 130, 20, "APARTAMENTO EM CONDOMINIO",
+     23, "RESIDENCIAL VERTICAL", 2012],
+]
+
 
 def main():
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
-    for nome, linhas in (("JAN-2026", LINHAS_JAN), ("FEV-2026", LINHAS_FEV)):
+    for nome, linhas in (
+        ("JAN-2026", LINHAS_JAN),
+        ("FEV-2026", LINHAS_FEV),
+        ("MAR-2025", LINHAS_MAR_2025),
+    ):
         ws = wb.create_sheet(nome)
         ws.append(CABECALHO)
         for linha in linhas:

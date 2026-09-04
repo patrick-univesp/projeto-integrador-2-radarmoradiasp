@@ -55,9 +55,9 @@ def test_rodar_executa_a_carga(db, tmp_path):
     admin_carga._rodar(carga.pk, str(copia), None, True)
     carga.refresh_from_db()
     assert carga.status == CargaMensal.CONCLUIDO
-    assert carga.linhas_gravadas == 10
+    assert carga.linhas_gravadas == 12
     assert carga.pico_mb is not None
-    assert Transacao.objects.count() == 10
+    assert Transacao.objects.count() == 12
     assert not copia.exists()  # o temp é apagado no fim
 
 
