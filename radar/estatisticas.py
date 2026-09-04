@@ -6,6 +6,7 @@ Detalhe e critério de aceitação: ``docs/local/issues/08-servico-estatisticas.
 """
 
 import statistics
+from collections import defaultdict
 
 from django.db.models import Max
 
@@ -22,6 +23,13 @@ LIMITE_CONFIANCA_BAIXA = 30
 CONFIANCA_INSUFICIENTE = "insuficiente"
 CONFIANCA_BAIXA = "baixa"
 CONFIANCA_OK = "ok"
+
+# Os limiares de confiança acima são calibrados pra n_com_metrica de uma
+# região inteira (~2 anos somados). Um mês isolado nunca chega a 10 —
+# aplicar o mesmo limiar aqui marcaria a série inteira como fraca sempre.
+# Abaixo disso a "mediana" do mês é 1-2 valores brutos, não uma mediana de
+# verdade.
+LIMIAR_MES_FRACO = 3
 
 
 def _confianca(n_com_metrica: int) -> str:
@@ -103,3 +111,53 @@ def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=No
         "periodo_fim": periodo[1],
         "confianca": _confianca(n_com_metrica),
     }
+
+
+def _meses_entre(inicio, fim):
+    """[(ano, mes), ...] de inicio a fim (tuplas (ano, mes)), inclusive."""
+    ano, mes = inicio
+    meses = []
+    while (ano, mes) <= fim:
+        meses.append((ano, mes))
+        mes += 1
+        if mes == 13:
+            mes = 1
+            ano += 1
+    return meses
+
+
+def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=None):
+    """Mediana mensal de R$/m² (RF8) — evolução do valor típico no tempo.
+
+    Usa ``data_transacao`` (quando o negócio aconteceu), nunca ``mes_guia``
+    (quando a guia foi paga — a issue #14 é enfática nisso, são coisas
+    diferentes). Mês sem transação que sustente uma mediana entra na série
+    como buraco (``mediana_rs_m2=None``), nunca é pulado: emendar dois meses
+    distantes como se fossem vizinhos mentiria sobre a evolução.
+    """
+    base, ano_min = transacoes_da_regiao(queryset, uso_grupo=uso_grupo, ano_min=ano_min)
+    pares = (
+        base.exclude(data_transacao__isnull=True)
+        .filter(rs_m2_construido__isnull=False)
+        .values_list("data_transacao", "rs_m2_construido")
+    )
+
+    por_mes = defaultdict(list)
+    for data, rs_m2 in pares:
+        por_mes[(data.year, data.month)].append(rs_m2)
+
+    if not por_mes:
+        return [], ano_min
+
+    chaves = sorted(por_mes)
+    serie = []
+    for ano, mes in _meses_entre(chaves[0], chaves[-1]):
+        valores = por_mes.get((ano, mes), [])
+        serie.append({
+            "ano": ano,
+            "mes": mes,
+            "mediana_rs_m2": statistics.median(valores) if valores else None,
+            "n_transacoes": len(valores),
+            "fraco": len(valores) < LIMIAR_MES_FRACO,
+        })
+    return serie, ano_min

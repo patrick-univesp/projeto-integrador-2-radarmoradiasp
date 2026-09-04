@@ -10,6 +10,7 @@
 {% block css %}
   <link rel="stylesheet" href="{% static 'css/regiao.css' %}">
   {% if mediana_fmt %}
+    <link rel="stylesheet" href="{% static 'css/serie.css' %}">
     <link rel="stylesheet" href="{% static 'vendor/maplibre-gl.css' %}">
     <link rel="stylesheet" href="{% static 'css/mapa.css' %}">
   {% endif %}
@@ -55,6 +56,38 @@
         naturalmente abaixo de índices de anúncio como o FipeZap.</li>
       {% if periodo %}<li>Período coberto pelos dados: {{ periodo }}.</li>{% endif %}
     </ul>
+
+    {% if grafico_serie %}
+      <section class="serie" aria-labelledby="serie-titulo">
+        <h2 id="serie-titulo" class="serie__titulo">Evolução do valor típico</h2>
+        <p class="serie__legenda">Mediana de R$/m² por mês, pela data do negócio (não pela data de
+          pagamento da guia). Pontos mais claros são meses com poucas vendas — a mediana ali é
+          menos confiável.</p>
+        <p class="serie__eixo">R$&#160;{{ grafico_serie.rotulo_base }} a R$&#160;{{ grafico_serie.rotulo_topo }} por m²</p>
+        <svg class="serie__grafico" viewBox="0 0 {{ grafico_serie.largura }} {{ grafico_serie.altura }}"
+             role="img" aria-label="Gráfico de linha da evolução mensal do valor típico por metro quadrado">
+          <line class="serie__grade" x1="0" y1="{{ grafico_serie.y_topo }}"
+                x2="{{ grafico_serie.largura }}" y2="{{ grafico_serie.y_topo }}" />
+          <line class="serie__grade" x1="0" y1="{{ grafico_serie.y_base }}"
+                x2="{{ grafico_serie.largura }}" y2="{{ grafico_serie.y_base }}" />
+          {% for pontos_linha in grafico_serie.segmentos %}
+            <polyline class="serie__linha" points="{{ pontos_linha }}" fill="none" />
+          {% endfor %}
+          {% for p in grafico_serie.pontos %}
+            {% if p.tem_dado %}
+              <circle class="serie__ponto{% if p.fraco %} serie__ponto--fraco{% endif %}"
+                      cx="{{ p.x }}" cy="{{ p.y }}" r="{% if p.fraco %}2.5{% else %}3.5{% endif %}">
+                <title>{{ p.mes_rotulo }}: {{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}{% if p.fraco %} — poucas vendas, mediana pouco confiável{% endif %}</title>
+              </circle>
+            {% endif %}
+            <text class="serie__rotulo-mes" x="{{ p.x }}" y="{{ grafico_serie.y_rotulos }}" text-anchor="{{ p.ancora }}">{{ p.mes_rotulo }}</text>
+          {% endfor %}
+        </svg>
+      </section>
+    {% else %}
+      <p class="serie__vazio">Ainda não há meses suficientes para mostrar a evolução do valor típico
+        nesta região.</p>
+    {% endif %}
 
     <section class="mapa-regiao">
       <p class="mapa-regiao__legenda">Mapa da região — veja a lista completa abaixo. Pontos mais claros são

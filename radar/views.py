@@ -8,7 +8,7 @@ from django.urls import reverse
 from django_ratelimit.decorators import ratelimit
 
 from radar.buscas import sugerir_regioes
-from radar.estatisticas import estatisticas_regiao, transacoes_da_regiao
+from radar.estatisticas import estatisticas_regiao, serie_mensal, transacoes_da_regiao
 from radar.models import Transacao
 from radar.regioes import APELIDOS, POR_SLUG
 
@@ -64,6 +64,16 @@ PRECISAO_GEO_PADRAO = (
     "sem localização",
     "Esta transação não tem coordenada — não é possível mostrá-la no mapa.",
 )
+
+# Geometria do SVG da série mensal (#14) — viewBox, não pixel real; o CSS
+# escala. Largura da faixa de plotagem = LARGURA_SERIE - 2*MARGEM_ESQ_SERIE.
+LARGURA_SERIE = 320
+ALTURA_PLOT_SERIE = 84
+ALTURA_ROTULOS_SERIE = 28
+MARGEM_ESQ_SERIE = 4
+MARGEM_TOPO_SERIE = 8
+# Menos de 2 meses com mediana não é "evolução" — é o estado vazio da #14.
+SERIE_MIN_PONTOS = 2
 
 # uso_grupo -> slug do glifo/ilustração (#18). Slugs batem 1:1 com os 11
 # uso_grupo de radar/carga/mineracao.py::_GRUPOS_USO. Grupo desconhecido ou
@@ -147,6 +157,86 @@ def _endereco(t):
     return f"{t.logradouro}, {t.numero}" if t.numero else f"{t.logradouro}, s/n"
 
 
+def _grafico_serie(serie):
+    """Geometria pronta pro SVG de regiao.html (#14): coordenadas em viewBox,
+    segmentos de polyline que já pulam buraco (mês sem mediana não vira reta
+    até o próximo ponto real) e os dois rótulos do eixo Y. ``None`` quando a
+    região não tem meses suficientes pra uma linha de verdade (estado vazio)."""
+    reais = [p for p in serie if p["mediana_rs_m2"] is not None]
+    if len(reais) < SERIE_MIN_PONTOS:
+        return None
+
+    valores = [p["mediana_rs_m2"] for p in reais]
+    v_min, v_max = min(valores), max(valores)
+    if v_min == v_max:
+        folga = (v_min * Decimal("0.1")) or Decimal("1")
+        v_min, v_max = v_min - folga, v_max + folga
+
+    n = len(serie)
+    passo_x = (LARGURA_SERIE - 2 * MARGEM_ESQ_SERIE) / max(n - 1, 1)
+
+    def _y(valor):
+        proporcao = float((valor - v_min) / (v_max - v_min))
+        return MARGEM_TOPO_SERIE + ALTURA_PLOT_SERIE * (1 - proporcao)
+
+    # String, não número: LANGUAGE_CODE="pt-br" localiza float no template
+    # (ponto -> vírgula) e "cx=4,0" quebra o atributo SVG (mesma armadilha do
+    # pos_mediana_pct da #09).
+    def _num(valor):
+        return f"{valor:g}"
+
+    pontos = []
+    ano_anterior = None
+    for i, p in enumerate(serie):
+        rotulo = _MESES[p["mes"] - 1][:3]
+        if p["ano"] != ano_anterior:
+            rotulo = f"{rotulo}/{p['ano'] % 100:02d}"
+        ano_anterior = p["ano"]
+        # O rótulo do primeiro/último mês fica centralizado no x=0/x=largura
+        # do gráfico — texto ancorado ao centro vazaria pra fora do viewBox e
+        # seria cortado. Só esses dois crescem pra dentro.
+        if i == 0:
+            ancora = "start"
+        elif i == n - 1:
+            ancora = "end"
+        else:
+            ancora = "middle"
+        pontos.append({
+            "x": _num(MARGEM_ESQ_SERIE + i * passo_x),
+            "y": _num(_y(p["mediana_rs_m2"])) if p["mediana_rs_m2"] is not None else None,
+            "mes_rotulo": rotulo,
+            "ancora": ancora,
+            "n": p["n_transacoes"],
+            "fraco": p["fraco"],
+            "tem_dado": p["mediana_rs_m2"] is not None,
+        })
+
+    segmentos = []
+    atual = []
+    for pt in pontos:
+        if pt["tem_dado"]:
+            atual.append(f"{pt['x']},{pt['y']}")
+        else:
+            if len(atual) > 1:
+                segmentos.append(" ".join(atual))
+            atual = []
+    if len(atual) > 1:
+        segmentos.append(" ".join(atual))
+
+    y_base = MARGEM_TOPO_SERIE + ALTURA_PLOT_SERIE
+    return {
+        "largura": _num(LARGURA_SERIE),
+        "altura": _num(y_base + ALTURA_ROTULOS_SERIE),
+        "pontos": pontos,
+        "segmentos": segmentos,
+        "y_topo": _num(MARGEM_TOPO_SERIE),
+        "y_base": _num(y_base),
+        "y_rotulos": _num(y_base + 14),
+        "rotulo_topo": _formatar_rs(v_max),
+        "rotulo_base": _formatar_rs(v_min),
+    }
+
+
 def _transacoes_formatadas(pagina):
     """Uma página do Paginator -> dicts prontos para o partial
     _lista_transacoes.html (mesmo formato para regiao() e cep())."""
@@ -222,6 +312,9 @@ def regiao(request, slug):
     elif mediana is not None:
         pos_mediana_pct = "50.0"
 
+    serie, _ = serie_mensal(Transacao.objects.filter(distrito_slug=slug), ano_min=stats["ano_min"])
+    grafico_serie = _grafico_serie(serie)
+
     # Mesmo ano_min da mediana acima: a soma dos itens paginados bate com
     # stats["n_transacoes"] porque é o mesmo filtro, só reordenado.
     ordenar = request.GET.get("ordenar", "data")
@@ -241,6 +334,7 @@ def regiao(request, slug):
             "p25_fmt": _formatar_rs(p25),
             "p75_fmt": _formatar_rs(p75),
             "pos_mediana_pct": pos_mediana_pct,
+            "grafico_serie": grafico_serie,
             "transacoes": _transacoes_formatadas(pagina),
             "pagina": pagina,
             "ordenar": ordenar,

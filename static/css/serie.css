@@ -1,0 +1,62 @@
+/* Radar da Moradia SP — evolução mensal do valor típico (#14) */
+
+.serie {
+  margin-top: var(--e-8);
+  padding-top: var(--e-6);
+  border-top: 1px solid var(--line);
+}
+.serie__titulo {
+  font-size: var(--t-secao);
+  font-weight: var(--peso-forte);
+  color: var(--text);
+  margin-bottom: var(--e-2);
+}
+.serie__legenda {
+  font-size: var(--t-apoio);
+  color: var(--text-2);
+  margin-bottom: var(--e-3);
+}
+
+.serie__eixo {
+  font-size: var(--t-rotulo);
+  color: var(--text-3);
+  margin-bottom: var(--e-1);
+}
+
+.serie__grafico {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--fonte-texto);
+}
+
+.serie__grade {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+/* Rampa sequencial de magnitude (tokens.css), não --accent — a mesma
+   disciplina de dataviz do mapa/#05: cor de série é separada de cor de ação. */
+.serie__linha {
+  stroke: var(--r4);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.serie__ponto { fill: var(--r4); }
+.serie__ponto--fraco { fill: var(--r2); }
+
+.serie__rotulo-mes {
+  font-size: 7px;
+  fill: var(--text-3);
+}
+
+.serie__vazio {
+  margin-top: var(--e-6);
+  padding: var(--e-4) var(--e-5);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--raio-cartao);
+  color: var(--text-2);
+  font-size: var(--t-apoio);
+}

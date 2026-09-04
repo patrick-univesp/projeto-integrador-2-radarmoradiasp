@@ -438,6 +438,56 @@ def test_regiao_mapa_e_marcador_da_faixa_sem_script_ou_style_inline(client):
     assert not [t for t in scripts_inline if t.strip()], "há script inline no HTML"
 
 
+# ---- evolução do valor típico / série mensal (#14) ----
+
+
+@pytest.mark.django_db
+def test_regiao_com_meses_suficientes_mostra_grafico_da_serie(client):
+    _transacao_regiao(data_transacao=dt.date(2026, 5, 1), ano_transacao=2026)
+    _transacao_regiao(data_transacao=dt.date(2026, 6, 1), ano_transacao=2026)
+    corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    assert 'class="serie__grafico"' in corpo
+    assert ">mai/26<" in corpo
+    assert ">jun<" in corpo
+
+
+@pytest.mark.django_db
+def test_regiao_com_um_mes_so_mostra_estado_vazio_da_serie(client):
+    """Critério da #14: estado vazio quando a região não tem série
+    suficiente — um mês só não é evolução."""
+    for _ in range(5):
+        _transacao_regiao(data_transacao=dt.date(2026, 6, 1), ano_transacao=2026)
+    corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    assert "serie__grafico" not in corpo
+    assert "Ainda não há meses suficientes" in corpo
+
+
+@pytest.mark.django_db
+def test_regiao_sem_mediana_nao_mostra_serie_nem_estado_vazio(client):
+    corpo = client.get(reverse("radar:regiao", args=["marsilac"])).content.decode()
+    assert "serie__grafico" not in corpo
+    assert "Ainda não há meses suficientes" not in corpo
+
+
+@pytest.mark.django_db
+def test_regiao_serie_marca_mes_fraco_visualmente(client):
+    _transacao_regiao(data_transacao=dt.date(2026, 5, 1), ano_transacao=2026)
+    for _ in range(3):
+        _transacao_regiao(data_transacao=dt.date(2026, 6, 1), ano_transacao=2026)
+    corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    assert "serie__ponto--fraco" in corpo
+
+
+@pytest.mark.django_db
+def test_regiao_grafico_da_serie_usa_ponto_decimal(client):
+    """LANGUAGE_CODE="pt-br" localiza float no template (ponto -> vírgula) —
+    cx="4,0" quebra o atributo SVG, mesma armadilha do pos_mediana_pct (#09)."""
+    _transacao_regiao(data_transacao=dt.date(2026, 5, 1), ano_transacao=2026)
+    _transacao_regiao(data_transacao=dt.date(2026, 7, 1), ano_transacao=2026)
+    corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    assert not re.search(r'\b(?:cx|cy|x|y)="\d+,\d+"', corpo)
+
+
 # ---- /cep/<cep>/ (#28) ----
 
 

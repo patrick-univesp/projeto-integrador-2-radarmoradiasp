@@ -11,7 +11,9 @@ from radar.estatisticas import (
     CONFIANCA_BAIXA,
     CONFIANCA_INSUFICIENTE,
     CONFIANCA_OK,
+    LIMIAR_MES_FRACO,
     estatisticas_regiao,
+    serie_mensal,
     transacoes_da_regiao,
 )
 from radar.models import Transacao
@@ -224,3 +226,79 @@ def test_transacoes_da_regiao_sem_nenhuma_transacao_devolve_ano_min_none():
     lista, ano_min = transacoes_da_regiao(Transacao.objects.none())
     assert ano_min is None
     assert lista.count() == 0
+
+
+# ---- serie_mensal (#14) ----
+
+
+@pytest.mark.django_db
+def test_serie_mensal_usa_data_transacao_nao_mes_guia():
+    """Critério da #14: a série é construída sobre data_transacao, nunca
+    mes_guia (mes_guia é quando a guia foi paga, não quando o negócio
+    aconteceu — são coisas diferentes)."""
+    _transacao(data_transacao=dt.date(2026, 3, 15), ano_guia=2026, mes_guia=7)
+    _transacao(data_transacao=dt.date(2026, 3, 15), ano_guia=2026, mes_guia=7)
+    serie, _ = serie_mensal(Transacao.objects.all())
+    assert len(serie) == 1
+    assert (serie[0]["ano"], serie[0]["mes"]) == (2026, 3)
+
+
+@pytest.mark.django_db
+def test_serie_mensal_mediana_por_mes():
+    for v in ("8000", "10000", "12000"):
+        _transacao(data_transacao=dt.date(2026, 1, 10), rs_m2_construido=Decimal(v))
+    serie, _ = serie_mensal(Transacao.objects.all())
+    assert serie[0]["mediana_rs_m2"] == Decimal("10000")
+    assert serie[0]["n_transacoes"] == 3
+
+
+@pytest.mark.django_db
+def test_serie_mensal_preenche_buraco_sem_pular_mes():
+    """Mês sem transação entra como buraco (mediana None), não é omitido —
+    senão a linha emendaria dois meses distantes como se fossem vizinhos."""
+    _transacao(data_transacao=dt.date(2026, 1, 10))
+    _transacao(data_transacao=dt.date(2026, 4, 10))
+    serie, _ = serie_mensal(Transacao.objects.all())
+    assert [(p["ano"], p["mes"]) for p in serie] == [
+        (2026, 1), (2026, 2), (2026, 3), (2026, 4),
+    ]
+    fevereiro = serie[1]
+    assert fevereiro["mediana_rs_m2"] is None
+    assert fevereiro["n_transacoes"] == 0
+
+
+@pytest.mark.django_db
+def test_serie_mensal_marca_mes_fraco():
+    for _ in range(LIMIAR_MES_FRACO - 1):
+        _transacao(data_transacao=dt.date(2026, 1, 10))
+    for _ in range(LIMIAR_MES_FRACO):
+        _transacao(data_transacao=dt.date(2026, 2, 10))
+    serie, _ = serie_mensal(Transacao.objects.all())
+    assert serie[0]["fraco"] is True
+    assert serie[1]["fraco"] is False
+
+
+@pytest.mark.django_db
+def test_serie_mensal_mes_buraco_conta_como_fraco():
+    _transacao(data_transacao=dt.date(2026, 1, 10))
+    _transacao(data_transacao=dt.date(2026, 2, 10))
+    serie, _ = serie_mensal(Transacao.objects.all())
+    assert serie[0]["fraco"] is True  # buraco no meio, n=0
+
+
+@pytest.mark.django_db
+def test_serie_mensal_sem_transacao_devolve_lista_vazia():
+    serie, ano_min = serie_mensal(Transacao.objects.none())
+    assert serie == []
+    assert ano_min is None
+
+
+@pytest.mark.django_db
+def test_serie_mensal_respeita_o_mesmo_filtro_de_base():
+    """Reusa transacoes_da_regiao — qualidade e uso_grupo residencial valem
+    aqui igual valem pra mediana e pra lista (#10/#08), não é recorte à parte."""
+    _transacao(data_transacao=dt.date(2026, 1, 10))
+    _transacao(data_transacao=dt.date(2026, 1, 10), uso_grupo="Garagem")
+    _transacao(data_transacao=dt.date(2026, 1, 10), qualidade=1)
+    serie, _ = serie_mensal(Transacao.objects.all())
+    assert serie[0]["n_transacoes"] == 1
