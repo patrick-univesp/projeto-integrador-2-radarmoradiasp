@@ -121,9 +121,17 @@ python manage.py carregar_itbi --arquivo "...xlsx" --abas JUL-2026 --limite 500
 python manage.py carregar_itbi --arquivo "...xlsx" --sem-geo --limite 500
 ```
 
+`--limite` é só para desenvolvimento e **não pode** ser combinado com
+`--substituir-mes` nem `--limpar`: apagaria o mês inteiro e reporia apenas as N
+primeiras linhas.
+
 Ou pelo admin: `/admin/` → **Cargas mensais → Carregar planilha** (upload de até
 40 MB; roda em segundo plano, progresso na própria linha). Aceita abas de qualquer
-ano e é idempotente por mês (`--substituir-mes`). Detalhes e todas as _flags_ em
+ano e é idempotente por mês (`--substituir-mes`).
+
+As duas rotas chamam a mesma função de carga, mas **só o upload pelo admin registra
+uma linha em Cargas mensais** — pela linha de comando o progresso sai no terminal e
+nada é gravado no histórico. Detalhes e todas as _flags_ em
 [carga-itbi.md](carga-itbi.md).
 
 ### Opção B — a amostra de teste
@@ -218,3 +226,11 @@ python manage.py migrate radar
 
 Isso dropa `radar_transacao` e `radar_cargamensal` e recria com o esquema atual.
 **Regra:** a `0001` não se edita mais; toda mudança de esquema é migration nova.
+
+### Se a carga for interrompida no meio
+
+Não há o que recuperar. Cada mês da guia é gravado numa transação só — o `delete` e
+os `bulk_create` daquele mês são atômicos —, então uma interrupção (falta de memória,
+reciclagem do worker, deploy) deixa o mês **como estava antes**, nunca pela metade.
+Basta subir a planilha de novo. Se a interrupção tiver sido no upload pelo admin, a
+linha em **Cargas mensais** aparece como `erro` explicando o que houve.

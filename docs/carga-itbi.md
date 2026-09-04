@@ -15,27 +15,44 @@ Junta as três peças que vêm antes: as funções puras de
 
 ## Fluxo
 
+A unidade de trabalho é **uma aba — um mês da guia**. Cada aba é lida, minerada e
+gravada antes de a próxima começar.
+
 ```mermaid
 flowchart TD
-    A["openpyxl read_only<br/>7 abas mensais, 28 colunas por posição"] --> B["para cada linha: para_sql()"]
+    A["para cada aba mensal (openpyxl read_only)"] --> B["passe 1: para cada linha, para_sql()"]
     B --> C{"SQL válido?"}
     C -- não --> X["descarta (conta no resumo)"]
     C -- sim --> D["agrupa a linha crua<br/>pelo setor fiscal (sql[:3])"]
-    D --> A
-    D --> E["para cada setor, em ordem:"]
+    D --> B
+    D --> E["passe 2, fora de transação:<br/>para cada setor, em ordem"]
     E --> F["geo_ref.indices_de_setor(setor)<br/>~poucos MB, um arquivo"]
     F --> G["coerção + mineração + normalizar_bairro<br/>+ resolver(sql, logradouro, numero)"]
-    G --> H{"acumulou --blocos?"}
-    H -- sim --> I["bulk_create dentro de transaction.atomic()"]
-    H -- não --> G
-    I --> J[("Transacao")]
+    G --> H["uma transação para o mês inteiro:<br/>delete do mês + bulk_create em blocos"]
+    H --> J[("Transacao")]
+    J --> A
 ```
 
 **Por que agrupar por setor:** carregar a referência geo da cidade inteira custa
-~450 MB (fica perto do teto de 600 MB do container). Carregando **um setor por
-vez**, o pico cai para **~245 MB** — medido na carga completa das 7 abas (135.655
-linhas, ~100–170 s). O custo é reabrir 269 arquivos `.json.gz`; para uma carga que
-roda poucas vezes por ano, compensa.
+~450 MB (perto do teto de 600 MB do container). Carregando **um setor por vez**, só
+alguns MB ficam residentes. O custo é reabrir os 269 arquivos `.json.gz` uma vez por
+aba — **2,5 s por aba**, ~11% do tempo total; para uma carga que roda poucas vezes por
+ano, compensa.
+
+**Por que uma aba por vez:** o buffer de linhas cruas é de um mês só (~22 MB nos ~19 mil
+registros de um mês típico), então a memória **não cresce com o número de anos** da
+planilha. Antes o buffer acumulava todas as abas — 1 190 bytes por linha, ou ~613 MB em
+quatro anos, acima do teto do container.
+
+**Por que a transação cobre o mês inteiro:** o `delete` do mês e todos os `bulk_create`
+dele são a mesma transação, então **ou o mês é substituído por inteiro, ou o banco fica
+como estava**. Morrer no meio — falta de memória, reciclagem do worker do gunicorn,
+`docker rm` do deploy — custa no máximo re-executar aquele mês, nunca dado pela metade.
+
+A **mineração fica fora da transação** de propósito: o `transaction_mode` é `IMMEDIATE`,
+o lock de escrita é tomado no `BEGIN`, e resolver geo custa ~80% do tempo do mês.
+Minerar dentro da transação seguraria o lock esse tempo todo e faria a sessão do admin
+tomar `database is locked`. Fora, o lock dura só o delete mais os inserts.
 
 ---
 
@@ -46,9 +63,9 @@ roda poucas vezes por ano, compensa.
 | `--arquivo`                | **obrigatório**, o `.xlsx`                                                                       |
 | `--abas JAN-2026,FEV-2026` | só essas abas mensais (padrão: todas)                                                            |
 | `--blocos N`               | tamanho do `bulk_create` (padrão 2000)                                                           |
-| `--limite N`               | só as N primeiras linhas de cada aba (desenvolvimento)                                           |
-| `--limpar`                 | apaga **tudo** antes                                                                             |
-| `--substituir-mes`         | apaga as linhas de cada `ano_guia`+`mes_guia` antes de reinserir — recarregar um mês não duplica |
+| `--limite N`               | só as N primeiras linhas de cada aba (desenvolvimento). **Recusado** junto com `--substituir-mes` ou `--limpar`: apagaria o mês e reporia só N linhas |
+| `--limpar`                 | apaga **tudo** antes. Exclusivo com `--substituir-mes`                                           |
+| `--substituir-mes`         | apaga as linhas de cada `ano_guia`+`mes_guia` antes de reinserir — recarregar um mês não duplica. Aba sem linha válida **não** apaga o mês |
 | `--sem-geo`                | não resolve `lat`/`lon`/`distrito` (tudo `--`) — feedback rápido                                 |
 | `--dry-run`                | parseia, minera e valida sem gravar                                                              |
 

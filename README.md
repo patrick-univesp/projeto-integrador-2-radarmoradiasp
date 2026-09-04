@@ -109,7 +109,8 @@ Duas formas de carregar uma planilha:
 - **pela linha de comando** — `python manage.py carregar_itbi --arquivo <planilha>.xlsx`;
 - **pelo admin** — `/admin/` → _Cargas mensais_ → _Carregar planilha_ (upload, roda em segundo plano).
 
-A carga aceita abas de qualquer ano (`JAN-2025`, `MAR-2024`…) e é idempotente por mês. Detalhes em **[docs/carga-itbi.md](docs/carga-itbi.md)**.
+A carga aceita abas de qualquer ano (`JAN-2025`, `MAR-2024`…) e é idempotente por mês:
+cada mês entra numa transação só, então uma interrupção nunca deixa mês pela metade. Detalhes em **[docs/carga-itbi.md](docs/carga-itbi.md)**.
 
 ---
 
