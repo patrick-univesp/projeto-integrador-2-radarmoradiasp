@@ -9,6 +9,11 @@
 
 {% block css %}
   <link rel="stylesheet" href="{% static 'css/regiao.css' %}">
+  {% if pos_mediana_pct %}
+    <style>
+      .faixa__marcador { left: {{ pos_mediana_pct }}%; }
+    </style>
+  {% endif %}
 {% endblock %}
 
 {% block conteudo %}
@@ -23,7 +28,7 @@
     {% if p25_fmt and p75_fmt and p25_fmt != p75_fmt %}
       <div class="faixa" role="img" aria-label="A maioria das vendas ficou entre R$ {{ p25_fmt }} e R$ {{ p75_fmt }} por metro quadrado">
         <div class="faixa__trilho">
-          <span class="faixa__marcador" style="left: {{ pos_mediana_pct }}%;"></span>
+          <span class="faixa__marcador"></span>
         </div>
         <div class="faixa__rotulos">
           <span>R$ {{ p25_fmt }}</span>
