@@ -56,14 +56,20 @@ class CargaMensalAdmin(admin.ModelAdmin):
         reconciliar_orfas()  # carga cuja thread morreu fica presa em "rodando"
         return super().get_queryset(request)
 
-    @admin.display(description="Por mês da guia (lidas / gravadas / descartadas / qual!=0 / sem geo)")
+    @admin.display(
+        description="Por mês da guia (lidas / gravadas / descartadas / qual!=0 / sem geo / sem região)"
+    )
     def resumo_por_mes(self, obj):
         if not obj.por_mes:
             return "—"
         corpo = format_html_join(
-            "", "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
-            ((k, m["lidas"], m["gravadas"], m["descartadas"], m["ruins"], m["sem_geo"])
-             for k, m in sorted(obj.por_mes.items())),
+            "",
+            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+            (
+                (k, m["lidas"], m["gravadas"], m["descartadas"], m["ruins"], m["sem_geo"],
+                 m.get("sem_regiao", 0))
+                for k, m in sorted(obj.por_mes.items())
+            ),
         )
         return format_html("<table><tbody>{}</tbody></table>", corpo)
 

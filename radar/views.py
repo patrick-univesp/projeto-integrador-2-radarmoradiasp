@@ -1,18 +1,13 @@
+from django.http import Http404, HttpResponsePermanentRedirect
 from django.shortcuts import render
-from django.utils.text import slugify
+from django.urls import reverse
 
 from radar.models import Transacao
+from radar.regioes import APELIDOS, POR_SLUG
 
-# Atalhos de navegação da home. Os nomes definitivos (com acento e casando com o
-# distrito do dado) e o resto da lista dependem do registro de regiões — issue #24.
-REGIOES_DESTAQUE = [
-    "Mooca",
-    "Itaim Bibi",
-    "Tatuapé",
-    "Santana",
-    "Vila Mariana",
-    "Butantã",
-]
+# Slugs do registro canônico — nunca string solta, pra nenhum link da home
+# apontar pra um slug que a página da região não aceite.
+REGIOES_DESTAQUE_SLUGS = ("mooca", "itaim-bibi", "tatuape", "santana", "vila-mariana", "butanta")
 
 _MESES = (
     "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -57,7 +52,7 @@ def inicio(request):
         request,
         "radar/inicio.html",
         {
-            "regioes_destaque": [{"nome": n, "slug": slugify(n)} for n in REGIOES_DESTAQUE],
+            "regioes_destaque": [POR_SLUG[s] for s in REGIOES_DESTAQUE_SLUGS],
             **_resumo_da_base(),
         },
     )
@@ -80,12 +75,16 @@ def busca(request):
 
 
 def regiao(request, slug):
-    termo_legivel = slug.replace("-", " ").title()
+    if slug in APELIDOS:
+        return HttpResponsePermanentRedirect(reverse("radar:regiao", args=[APELIDOS[slug]]))
+    r = POR_SLUG.get(slug)
+    if r is None:
+        raise Http404(f"região {slug!r} não existe")
     return render(
         request,
         "radar/em_breve.html",
         {
-            "titulo": termo_legivel,
+            "titulo": r.nome,
             "mensagem": (
                 "A página da região mostrará o valor típico do metro quadrado, a faixa "
                 "de preços e quantas vendas sustentam o número. Ainda não está pronta."

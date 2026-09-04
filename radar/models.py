@@ -53,7 +53,12 @@ class Transacao(models.Model):
     bairro = models.CharField(max_length=120, blank=True)
     bairro_norm = models.CharField(max_length=120, blank=True, db_index=True)
     cep = models.CharField(max_length=8, blank=True, db_index=True)
+    # Chave do dado, como o GeoSampa entrega (caixa alta, sem acento) — proveniência,
+    # nunca usada em consulta de view. Quem filtra por região usa distrito_slug.
     distrito = models.CharField(max_length=60, blank=True, db_index=True)
+    # Slug do registro canônico (radar/regioes.py). "" quando o distrito não bate
+    # com nenhuma das 96 regiões — não falha a carga (issue #24).
+    distrito_slug = models.CharField(max_length=60, blank=True, db_index=True)
 
     lat = models.FloatField(null=True)
     lon = models.FloatField(null=True)
@@ -83,7 +88,7 @@ class Transacao(models.Model):
         verbose_name_plural = "transações"
         indexes = [
             models.Index(fields=["lat", "lon"], name="radar_trans_lat_lon"),
-            models.Index(fields=["distrito", "ano_transacao"], name="radar_trans_distrito_ano"),
+            models.Index(fields=["distrito_slug", "ano_transacao"], name="radar_trans_dslug_ano"),
             models.Index(fields=["bairro_norm", "ano_transacao"], name="radar_trans_bairro_ano"),
             models.Index(fields=["ano_guia", "mes_guia"], name="radar_trans_guia"),
         ]

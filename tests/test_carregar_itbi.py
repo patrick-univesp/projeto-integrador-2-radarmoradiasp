@@ -65,6 +65,17 @@ def test_geo_por_lookup_cobre_a_escada():
 
 
 @pytest.mark.django_db
+def test_distrito_slug_e_preenchido_pelo_registro_de_regioes():
+    _carregar()
+    t1 = Transacao.objects.get(sql="00103604280", numero="391")
+    assert (t1.distrito, t1.distrito_slug) == ("REPUBLICA", "republica")
+    t3 = Transacao.objects.get(sql="00102302388")
+    assert (t3.distrito, t3.distrito_slug) == ("SE", "se")
+    sem = Transacao.objects.get(sql="99912300010")
+    assert (sem.distrito, sem.distrito_slug) == ("", "")  # sem geo, também sem região
+
+
+@pytest.mark.django_db
 def test_flag_cadastro_defasado():
     _carregar()
     assert Transacao.objects.get(sql="16526701080", complemento="BL A AP 71").flag_cadastro_defasado

@@ -95,6 +95,30 @@ def test_regiao_responde(client):
     assert r.status_code == 200
 
 
+def test_regiao_exibe_o_nome_acentuado(client):
+    """Achado de 03/09/2026: antes da #24, /regiao/butanta/ exibia "Butanta"
+    (slug.title(), sem acento) em vez do nome de verdade."""
+    corpo = client.get(reverse("radar:regiao", args=["butanta"])).content.decode()
+    assert "Butantã" in corpo
+
+
+def test_regiao_com_slug_inexistente_da_404(client):
+    r = client.get(reverse("radar:regiao", args=["xpto-nao-existe"]))
+    assert r.status_code == 404
+
+
+def test_regiao_marsilac_tem_pagina_mesmo_sem_transacao(client):
+    """Marsilac tem zero lotes na referência geo — a página tem que existir."""
+    r = client.get(reverse("radar:regiao", args=["marsilac"]))
+    assert r.status_code == 200
+
+
+def test_regiao_apelido_redireciona_para_o_canonico(client):
+    r = client.get(reverse("radar:regiao", args=["vila-madalena"]))
+    assert r.status_code == 301
+    assert r.url == reverse("radar:regiao", args=["pinheiros"])
+
+
 @pytest.mark.django_db
 def test_inicio_tem_botao_entrar(client):
     corpo = client.get(reverse("radar:inicio")).content.decode()

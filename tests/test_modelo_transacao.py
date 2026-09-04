@@ -59,11 +59,12 @@ def test_indices_esperados_existem():
         ("bairro_norm",),
         ("cep",),
         ("distrito",),
+        ("distrito_slug",),
         ("ano_transacao",),
         ("uso_grupo",),
         ("qualidade",),
         ("lat", "lon"),
-        ("distrito", "ano_transacao"),
+        ("distrito_slug", "ano_transacao"),
         ("bairro_norm", "ano_transacao"),
     ]
     faltando = [e for e in esperados if e not in indices]

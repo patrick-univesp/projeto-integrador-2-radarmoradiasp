@@ -17,6 +17,7 @@ from django.db import transaction
 from radar.carga import coercao, geo_ref, mineracao
 from radar.carga.normalizacao import normalizar_bairro
 from radar.models import Transacao
+from radar.regioes import slug_de_distrito
 
 # Posição das 28 colunas na aba mensal (lidas por posição: FEV-2026 tem uma
 # coluna extra vazia e o cabeçalho do padrão vem com typo).
@@ -52,6 +53,7 @@ def _linha_para_transacao(bruta, indices, ano_guia, mes_guia):
     bairro = coercao.para_texto(bruta[C_BAIRRO])
 
     lon, lat, nivel, distrito, _sub, _reg = geo_ref.resolver(sql, logr, bruta[C_NUM], indices)
+    distrito = (distrito or "")[:60]
 
     deslocada = mineracao.linha_deslocada(bruta[C_SITSQL], bruta[C_TIPOFIN])
     inconsistente = mineracao.valor_inconsistente(base, valor, vvrp)
@@ -64,7 +66,8 @@ def _linha_para_transacao(bruta, indices, ano_guia, mes_guia):
         bairro=bairro[:120],
         bairro_norm=normalizar_bairro(bairro)[:120],
         cep=coercao.para_cep(bruta[C_CEP]),
-        distrito=(distrito or "")[:60],
+        distrito=distrito,
+        distrito_slug=slug_de_distrito(distrito),
         lat=lat,
         lon=lon,
         geo_nivel=nivel,
@@ -90,7 +93,7 @@ def _pico_mb():
     return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
 
 
-_CONTADORES = ("lidas", "gravadas", "descartadas", "ruins", "sem_geo")
+_CONTADORES = ("lidas", "gravadas", "descartadas", "ruins", "sem_geo", "sem_regiao")
 
 
 def _zero():
@@ -148,6 +151,11 @@ def _gravar_mes(por_setor, ano_guia, mes_guia, cont, m, *, blocos, sem_geo,
             if obj.geo_nivel == "--":
                 cont["sem_geo"] += 1
                 m["sem_geo"] += 1
+            elif not obj.distrito_slug:
+                # distrito resolvido mas ausente do registro (radar/regioes.py) —
+                # não devia acontecer; sinal de a referência geo ter mudado.
+                cont["sem_regiao"] += 1
+                m["sem_regiao"] += 1
             objetos.append(obj)
 
     if dry_run:
@@ -255,17 +263,19 @@ class Command(BaseCommand):
         except FileNotFoundError as e:
             raise CommandError(str(e)) from e
 
-        self.stdout.write("\npor mês da guia (lidas / gravadas / descartadas / qual!=0 / sem geo):")
+        self.stdout.write(
+            "\npor mês da guia (lidas / gravadas / descartadas / qual!=0 / sem geo / sem região):"
+        )
         for chave, m in sorted(r["por_mes"].items()):
             self.stdout.write(
                 f"  {chave}: {m['lidas']} / {m['gravadas']} / {m['descartadas']} / "
-                f"{m['ruins']} / {m['sem_geo']}"
+                f"{m['ruins']} / {m['sem_geo']} / {m['sem_regiao']}"
             )
 
         t = r["total"]
         self.stdout.write(self.style.SUCCESS(
             f"\n{t['lidas']} lidas · {t['gravadas']} gravadas · {t['descartadas']} sem SQL · "
-            f"{t['ruins']} qualidade!=0 · {t['sem_geo']} sem geo\n"
+            f"{t['ruins']} qualidade!=0 · {t['sem_geo']} sem geo · {t['sem_regiao']} sem região\n"
             f"{r['segundos']}s · pico de memória {r['pico_mb']} MB"
             + ("  (dry-run: nada gravado)" if o["dry_run"] else "")
         ))
