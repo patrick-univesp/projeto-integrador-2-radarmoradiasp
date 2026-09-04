@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block css %}
-  <link rel="stylesheet" href="{% static 'css/transicao.css' %}">
-{% endblock %}
+{% comment %}
+css/transicao.css é só da transição cinematográfica, desligada por enquanto
+— ver o comentário perto de onde ela era incluída, mais abaixo.
+{% endcomment %}
 
 {% block conteudo %}
 <div class="hero-area">
@@ -60,11 +61,19 @@
   </div>
 </div>
 
-{% include "radar/transicao_busca.html" %}
+{% comment %}
+Transição cinematográfica (zoom no distrito antes de navegar) desligada por
+enquanto: só cobre 8 regiões fixas, e detectarRegiao() em transicao_busca.js
+é um placeholder que cai em Mooca pra qualquer termo não reconhecido — falso
+para a #06 (autocomplete de verdade). Com a #09 pronta, a busca e os atalhos
+vão direto pra página real; sem a animação. Arquivos intactos em
+templates/radar/transicao_busca.html, static/js/transicao_busca.js e
+static/css/transicao.css — retomar (e então cobrir as 96 regiões, não só 8)
+depois que a busca de verdade existir.
+{% endcomment %}
 {% endblock %}
 
 {% block js %}
 <script src="{% static 'js/busca_animada.js' %}" defer></script>
-<script src="{% static 'js/transicao_busca.js' %}" defer></script>
 <script src="{% static 'js/contador_transacoes.js' %}" defer></script>
 {% endblock %}
