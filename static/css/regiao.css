@@ -104,6 +104,94 @@
   color: var(--text-2);
 }
 
+.transacoes {
+  margin-top: var(--e-10);
+  padding-top: var(--e-6);
+  border-top: 1px solid var(--line);
+}
+.transacoes__cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--e-2) var(--e-4);
+  margin-bottom: var(--e-5);
+}
+.transacoes__titulo {
+  font-size: var(--t-secao);
+  font-weight: var(--peso-forte);
+  color: var(--text);
+}
+.transacoes__ordenar {
+  display: flex;
+  gap: var(--e-1);
+  font-size: var(--t-apoio);
+}
+.transacoes__ordenar a {
+  padding: var(--e-1) var(--e-3);
+  border-radius: var(--raio-atalho);
+  color: var(--text-2);
+}
+.transacoes__ordenar a:hover { color: var(--accent-ink); text-decoration: none; }
+.transacoes__ordenar a[aria-current="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: var(--peso-forte);
+}
+
+.transacoes__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+.transacoes__item {
+  padding: var(--e-4) var(--e-5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--raio-cartao);
+}
+.transacoes__endereco {
+  font-weight: var(--peso-forte);
+  color: var(--text);
+}
+.transacoes__grade {
+  margin: var(--e-3) 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--e-2) var(--e-4);
+}
+.transacoes__grade dt {
+  font-size: var(--t-rotulo);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-3);
+}
+.transacoes__grade dd {
+  margin: 0;
+  font-size: var(--t-apoio);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.transacoes__vazio { color: var(--text-2); }
+
+.transacoes__paginacao {
+  margin-top: var(--e-6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-3);
+  font-size: var(--t-apoio);
+}
+.transacoes__paginacao-desabilitado { color: var(--text-3); }
+
+@media (min-width: 480px) {
+  .transacoes__grade { grid-template-columns: repeat(3, 1fr); }
+}
+
 @media (min-width: 720px) {
   .regiao { padding-block: var(--e-8) var(--e-12); }
   .regiao__nome { font-size: 2.25rem; }

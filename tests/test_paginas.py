@@ -246,6 +246,90 @@ def test_regiao_nao_usa_vocabulario_de_fisco(client):
 
 
 @pytest.mark.django_db
+def test_regiao_lista_transacoes_mostra_endereco_e_valores(client):
+    _transacao_regiao(logradouro="Rua Taquari", numero="500", valor_transacao=Decimal("500000"))
+    corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    assert "Rua Taquari, 500" in corpo
+    assert "R$&nbsp;500.000" in corpo
+
+
+@pytest.mark.django_db
+def test_regiao_lista_metrica_ausente_mostra_travessao_nao_zero(client):
+    _transacao_regiao(logradouro="Rua Sem Metrica", numero="1", rs_m2_construido=None)
+    corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    assert "Rua Sem Metrica, 1" in corpo
+    assert "não aplicável" in corpo
+    assert "R$ 0" not in corpo
+
+
+@pytest.mark.django_db
+def test_regiao_lista_ordena_por_data_decrescente_por_padrao(client):
+    _transacao_regiao(logradouro="Mais Antiga", numero="1", data_transacao=dt.date(2025, 1, 1), ano_transacao=2025)
+    _transacao_regiao(logradouro="Mais Recente", numero="2", data_transacao=dt.date(2026, 6, 1), ano_transacao=2026)
+    corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    assert corpo.index("Mais Recente") < corpo.index("Mais Antiga")
+
+
+@pytest.mark.django_db
+def test_regiao_lista_ordena_por_valor(client):
+    _transacao_regiao(logradouro="Barata", numero="1", valor_transacao=Decimal("100000"))
+    _transacao_regiao(logradouro="Cara", numero="2", valor_transacao=Decimal("900000"))
+    corpo = client.get(reverse("radar:regiao", args=["mooca"]) + "?ordenar=valor").content.decode()
+    assert corpo.index("Cara") < corpo.index("Barata")
+
+
+@pytest.mark.django_db
+def test_regiao_lista_ordena_por_rs_m2(client):
+    _transacao_regiao(logradouro="Barato o m2", numero="1", rs_m2_construido=Decimal("3000"))
+    _transacao_regiao(logradouro="Caro o m2", numero="2", rs_m2_construido=Decimal("20000"))
+    corpo = client.get(reverse("radar:regiao", args=["mooca"]) + "?ordenar=rsm2").content.decode()
+    assert corpo.index("Caro o m2") < corpo.index("Barato o m2")
+
+
+@pytest.mark.django_db
+def test_regiao_ordenar_invalido_cai_no_padrao_sem_quebrar(client):
+    _transacao_regiao()
+    r = client.get(reverse("radar:regiao", args=["mooca"]) + "?ordenar=lixo")
+    assert r.status_code == 200
+
+
+@pytest.mark.django_db
+def test_regiao_lista_pagina_e_soma_bate_com_n_transacoes(client):
+    from radar.estatisticas import estatisticas_regiao
+    from radar.models import Transacao
+    from radar.views import TRANSACOES_POR_PAGINA
+
+    total = TRANSACOES_POR_PAGINA + 5
+    for _ in range(total):
+        _transacao_regiao()
+
+    stats = estatisticas_regiao(Transacao.objects.filter(distrito_slug="mooca"))
+    assert stats["n_transacoes"] == total
+
+    pagina_1 = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    pagina_2 = client.get(reverse("radar:regiao", args=["mooca"]) + "?pagina=2").content.decode()
+    assert pagina_1.count('class="transacoes__item"') == TRANSACOES_POR_PAGINA
+    assert pagina_2.count('class="transacoes__item"') == total - TRANSACOES_POR_PAGINA
+    assert "página 1 de 2" in pagina_1
+    assert "página 2 de 2" in pagina_2
+
+
+@pytest.mark.django_db
+def test_regiao_sem_transacao_na_janela_mostra_lista_vazia_propria(client):
+    corpo = client.get(reverse("radar:regiao", args=["marsilac"])).content.decode()
+    assert "Nenhuma transação encontrada" in corpo
+
+
+@pytest.mark.django_db
+def test_regiao_lista_nao_usa_tabela_com_rolagem_lateral(client):
+    """Critério de aceitação da #10: em 390px cada transação vira cartão, não
+    tabela. A marcação nunca deveria ter <table> para a lista."""
+    _transacao_regiao()
+    corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    assert "<table" not in corpo
+
+
+@pytest.mark.django_db
 def test_inicio_tem_botao_entrar(client):
     corpo = client.get(reverse("radar:inicio")).content.decode()
     assert 'href="/entrar/"' in corpo

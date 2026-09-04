@@ -12,6 +12,7 @@ from radar.estatisticas import (
     CONFIANCA_INSUFICIENTE,
     CONFIANCA_OK,
     estatisticas_regiao,
+    transacoes_da_regiao,
 )
 from radar.models import Transacao
 
@@ -173,3 +174,53 @@ def test_uma_unica_transacao_nao_quebra_o_calculo_de_quartis():
     _transacao(rs_m2_construido=Decimal("10000"))
     r = estatisticas_regiao(Transacao.objects.all())
     assert r["mediana_rs_m2"] == r["p25_rs_m2"] == r["p75_rs_m2"] == Decimal("10000")
+
+
+@pytest.mark.django_db
+def test_estatisticas_expoe_o_ano_min_usado():
+    _transacao(ano_transacao=2026, data_transacao=dt.date(2026, 6, 1))
+    r = estatisticas_regiao(Transacao.objects.all())
+    assert r["ano_min"] == 2025  # JANELA_ANOS_PADRAO=2: 2026 e 2025
+
+
+# ---- transacoes_da_regiao (#10) ----
+# Mesmo filtro de base que estatisticas_regiao usa por baixo — o teste que
+# importa aqui é que os dois nunca divirjam (critério de aceitação da #10:
+# "a soma de itens paginados bate com o n_transacoes da #08").
+
+
+@pytest.mark.django_db
+def test_transacoes_da_regiao_bate_com_n_transacoes_de_estatisticas_regiao():
+    for _ in range(5):
+        _transacao()
+    _transacao(qualidade=1)  # fora por qualidade
+    _transacao(uso_grupo="Garagem")  # fora por tipo
+    _transacao(ano_transacao=1998, data_transacao=dt.date(1998, 1, 1))  # fora da janela
+    stats = estatisticas_regiao(Transacao.objects.all())
+    lista, ano_min = transacoes_da_regiao(Transacao.objects.all())
+    assert lista.count() == stats["n_transacoes"] == 5
+    assert ano_min == stats["ano_min"]
+
+
+@pytest.mark.django_db
+def test_transacoes_da_regiao_nao_exige_rs_m2_construido():
+    """Achado da #10: um SQL com cadastro defasado tem valor_transacao real e
+    qualidade=0, mas pode não ter R$/m² calculável — não pode sumir da lista."""
+    _transacao(rs_m2_construido=None)
+    lista, _ = transacoes_da_regiao(Transacao.objects.all())
+    assert lista.count() == 1
+
+
+@pytest.mark.django_db
+def test_transacoes_da_regiao_ano_min_explicito_e_devolvido_igual():
+    _transacao(ano_transacao=2020, data_transacao=dt.date(2020, 1, 1))
+    lista, ano_min = transacoes_da_regiao(Transacao.objects.all(), ano_min=2020)
+    assert ano_min == 2020
+    assert lista.count() == 1
+
+
+@pytest.mark.django_db
+def test_transacoes_da_regiao_sem_nenhuma_transacao_devolve_ano_min_none():
+    lista, ano_min = transacoes_da_regiao(Transacao.objects.none())
+    assert ano_min is None
+    assert lista.count() == 0

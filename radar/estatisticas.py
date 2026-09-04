@@ -41,15 +41,13 @@ def _mediana_e_quartis(valores):
     return p25, statistics.median(valores), p75
 
 
-def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=None):
-    """Resumo estatístico de uma região. ``queryset`` já vem filtrado por região
-    (ex.: ``Transacao.objects.filter(distrito_slug="mooca")``) — aqui entram os
-    filtros de qualidade do dado, não de localização.
-
-    ``ano_min=None`` (padrão) usa os últimos ``JANELA_ANOS_PADRAO`` anos com
-    transação **nesta região**, para uma área que ficou muda recentemente não
-    aparecer vazia por causa de um ano de referência global. Passar ``ano_min``
-    explícito fixa a mesma janela entre regiões — necessário para comparação (#15).
+def transacoes_da_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=None):
+    """O mesmo filtro de base que sustenta a mediana — qualidade boa, uso
+    residencial por padrão, janela de anos — mas deliberadamente **sem**
+    exigir ``rs_m2_construido``: excluir esconderia um SQL com cadastro
+    defasado (``referencia-itbi.md`` §2.4) que tem ``valor_transacao`` real e
+    só não tem R$/m² calculável. Fonte única para ``estatisticas_regiao`` e
+    para a lista de transações da #10 não divergirem.
     """
     base = queryset.filter(qualidade=0)
     if uso_grupo:
@@ -61,6 +59,21 @@ def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=No
             ano_min = maior_ano - (JANELA_ANOS_PADRAO - 1)
     if ano_min is not None:
         base = base.filter(ano_transacao__gte=ano_min)
+
+    return base, ano_min
+
+
+def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=None):
+    """Resumo estatístico de uma região. ``queryset`` já vem filtrado por região
+    (ex.: ``Transacao.objects.filter(distrito_slug="mooca")``) — aqui entram os
+    filtros de qualidade do dado, não de localização.
+
+    ``ano_min=None`` (padrão) usa os últimos ``JANELA_ANOS_PADRAO`` anos com
+    transação **nesta região**, para uma área que ficou muda recentemente não
+    aparecer vazia por causa de um ano de referência global. Passar ``ano_min``
+    explícito fixa a mesma janela entre regiões — necessário para comparação (#15).
+    """
+    base, ano_min = transacoes_da_regiao(queryset, uso_grupo=uso_grupo, ano_min=ano_min)
 
     n_transacoes = base.count()
     valores_transacao = list(base.values_list("valor_transacao", flat=True))
@@ -78,6 +91,7 @@ def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=No
     periodo = (min(datas), max(datas)) if datas else (None, None)
 
     return {
+        "ano_min": ano_min,
         "n_transacoes": n_transacoes,
         "n_com_metrica": n_com_metrica,
         "mediana_rs_m2": mediana_rs_m2,

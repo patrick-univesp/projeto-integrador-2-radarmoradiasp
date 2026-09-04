@@ -1,12 +1,13 @@
 from decimal import Decimal
 
+from django.core.paginator import Paginator
 from django.http import Http404, HttpResponsePermanentRedirect, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django_ratelimit.decorators import ratelimit
 
 from radar.buscas import sugerir_regioes
-from radar.estatisticas import estatisticas_regiao
+from radar.estatisticas import estatisticas_regiao, transacoes_da_regiao
 from radar.models import Transacao
 from radar.regioes import APELIDOS, POR_SLUG
 
@@ -21,6 +22,13 @@ TAXA_CONSULTA = "30/m"
 # O autocomplete dispara mais de uma requisição por busca digitada (mesmo com
 # debounce no cliente) — mais generoso que TAXA_CONSULTA de propósito.
 TAXA_SUGESTOES = "60/m"
+
+TRANSACOES_POR_PAGINA = 20
+ORDENACOES_TRANSACOES = {
+    "data": "-data_transacao",
+    "valor": "-valor_transacao",
+    "rsm2": "-rs_m2_construido",
+}
 
 _MESES = (
     "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -123,6 +131,27 @@ def regiao(request, slug):
     elif mediana is not None:
         pos_mediana_pct = "50.0"
 
+    # Mesmo ano_min da mediana acima: a soma dos itens paginados bate com
+    # stats["n_transacoes"] porque é o mesmo filtro, só reordenado.
+    ordenar = request.GET.get("ordenar", "data")
+    if ordenar not in ORDENACOES_TRANSACOES:
+        ordenar = "data"
+    lista, _ = transacoes_da_regiao(Transacao.objects.filter(distrito_slug=slug), ano_min=stats["ano_min"])
+    lista = lista.order_by(ORDENACOES_TRANSACOES[ordenar])
+    pagina = Paginator(lista, TRANSACOES_POR_PAGINA).get_page(request.GET.get("pagina"))
+    transacoes = [
+        {
+            "sql": t.sql,
+            "endereco": f"{t.logradouro}, {t.numero}",
+            "area_construida": t.area_construida,
+            "uso_grupo": t.uso_grupo,
+            "data": t.data_transacao,
+            "valor_fmt": _formatar_rs(t.valor_transacao),
+            "rs_m2_fmt": _formatar_rs(t.rs_m2_construido),
+        }
+        for t in pagina.object_list
+    ]
+
     return render(
         request,
         "radar/regiao.html",
@@ -133,6 +162,9 @@ def regiao(request, slug):
             "p25_fmt": _formatar_rs(p25),
             "p75_fmt": _formatar_rs(p75),
             "pos_mediana_pct": pos_mediana_pct,
+            "transacoes": transacoes,
+            "pagina": pagina,
+            "ordenar": ordenar,
             "periodo": (
                 _rotular_periodo(
                     stats["periodo_inicio"].year, stats["periodo_inicio"].month,
