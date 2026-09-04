@@ -1,0 +1,88 @@
+/* Radar da Moradia SP — detalhe de uma transação (#13) */
+
+.transacao__voltar {
+  display: inline-block;
+  margin-bottom: var(--e-4);
+  font-size: var(--t-apoio);
+  color: var(--text-2);
+}
+.transacao__voltar:hover { color: var(--accent-ink); }
+
+.transacao__rotulo { margin-bottom: var(--e-2); }
+
+.transacao__endereco {
+  font-size: var(--t-titulo);
+  font-weight: var(--peso-forte);
+  letter-spacing: -.015em;
+  color: var(--text);
+}
+
+.transacao__valor {
+  margin-top: var(--e-4);
+  font-size: var(--t-numero);
+  font-weight: var(--peso-numero);
+  letter-spacing: -.02em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+
+.transacao__grade {
+  margin: var(--e-6) 0 0;
+  padding-top: var(--e-5);
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--e-4);
+}
+.transacao__grade dt {
+  font-size: var(--t-rotulo);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-3);
+}
+.transacao__grade dd {
+  margin: var(--e-1) 0 0;
+  font-size: var(--t-apoio);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.transacao__nota {
+  margin-top: var(--e-4);
+  font-size: var(--t-apoio);
+  color: var(--text-3);
+}
+
+.transacao__precisao {
+  margin-top: var(--e-6);
+  padding: var(--e-4) var(--e-5);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--raio-cartao);
+}
+.transacao__precisao-rotulo {
+  font-weight: var(--peso-forte);
+  font-size: var(--t-apoio);
+}
+.transacao__precisao-descricao {
+  margin-top: var(--e-1);
+  font-size: var(--t-apoio);
+}
+
+/* Seletor composto: especificidade maior que .aviso sozinho (base.css), pra
+   não perder a cor de aviso por causa da ordem de carregamento dos arquivos. */
+.transacao__precisao.aviso {
+  background: var(--aviso-suave);
+  border-color: var(--aviso-linha);
+  color: var(--aviso);
+}
+
+@media (min-width: 480px) {
+  .transacao__grade { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (min-width: 720px) {
+  .transacao__endereco { font-size: 2.25rem; }
+  .transacao__valor { font-size: 4rem; }
+}

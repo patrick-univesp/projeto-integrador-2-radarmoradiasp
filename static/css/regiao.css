@@ -148,10 +148,19 @@
   gap: var(--e-3);
 }
 .transacoes__item {
-  padding: var(--e-4) var(--e-5);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--raio-cartao);
+  overflow: hidden;
+}
+.transacoes__link {
+  display: block;
+  padding: var(--e-4) var(--e-5);
+  color: inherit;
+}
+.transacoes__link:hover {
+  background: var(--surface-2);
+  text-decoration: none;
 }
 .transacoes__endereco {
   font-weight: var(--peso-forte);

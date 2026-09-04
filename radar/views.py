@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.core.paginator import Paginator
 from django.http import Http404, HttpResponsePermanentRedirect, HttpResponseRedirect, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django_ratelimit.decorators import ratelimit
 
@@ -41,6 +41,29 @@ LIMITE_PONTOS_MAPA = 500
 # T4 = centroide da quadra fiscal inteira, ~100 m — a única faixa que o RF6
 # pede pra marcar como aproximada; T1–T3 já são específicas de lote/endereço.
 GEO_NIVEL_APROXIMADO = "T4"
+
+# Tradução de geo_nivel (referencia-geo.md) pra linguagem comum — #13: nenhum
+# código técnico ("T2") visível ao usuário.
+PRECISAO_GEO = {
+    "T1": ("lote exato", "A coordenada aponta para o lote exato deste imóvel."),
+    "T2": (
+        "endereço aproximado",
+        "A coordenada resolve o endereço dentro da quadra — comum em apartamentos, "
+        "cujo lote individual não existe no cadastro de lotes.",
+    ),
+    "T3": (
+        "vizinhança",
+        "A coordenada usa o número de porta mais próximo no mesmo logradouro.",
+    ),
+    "T4": (
+        "aproximado, cerca de 100 m",
+        "A coordenada é o centroide da quadra fiscal inteira, sem precisão de lote.",
+    ),
+}
+PRECISAO_GEO_PADRAO = (
+    "sem localização",
+    "Esta transação não tem coordenada — não é possível mostrá-la no mapa.",
+)
 
 _MESES = (
     "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -105,6 +128,7 @@ def _transacoes_formatadas(pagina):
     _lista_transacoes.html (mesmo formato para regiao() e cep())."""
     return [
         {
+            "id": t.id,
             "sql": t.sql,
             "endereco": _endereco(t),
             "area_construida": t.area_construida,
@@ -209,6 +233,45 @@ def regiao(request, slug):
 
 
 @ratelimit(key="ip", rate=TAXA_CONSULTA, block=False)
+def transacao(request, id):
+    """Detalhe de uma transação (#13) — RF3: o usuário clicou num ponto do
+    mapa ou num item da lista e quer ver aquele negócio, em linguagem comum."""
+    if request.limited:
+        return render(request, "429.html", status=429)
+    t = get_object_or_404(Transacao, pk=id)
+
+    rs_m2_fmt = _formatar_rs(t.rs_m2_construido)
+    rs_m2_explicacao = None
+    if rs_m2_fmt is None:
+        rs_m2_explicacao = (
+            "Este imóvel não tem área construída registrada (é um terreno, ou a guia "
+            "não trouxe essa informação) — R$/m² não se aplica."
+            if not t.area_construida
+            else "A guia registra só uma fração do imóvel (ex.: transferência de "
+            "cota-parte) — o valor não representa o imóvel inteiro, então R$/m² não "
+            "é calculado."
+        )
+
+    precisao_rotulo, precisao_descricao = PRECISAO_GEO.get(t.geo_nivel, PRECISAO_GEO_PADRAO)
+
+    return render(
+        request,
+        "radar/transacao.html",
+        {
+            "t": t,
+            "endereco": _endereco(t),
+            "valor_fmt": _formatar_rs(t.valor_transacao),
+            "rs_m2_fmt": rs_m2_fmt,
+            "rs_m2_explicacao": rs_m2_explicacao,
+            "precisao_rotulo": precisao_rotulo,
+            "precisao_descricao": precisao_descricao,
+            "precisao_aproximada": t.geo_nivel == GEO_NIVEL_APROXIMADO,
+            "regiao": POR_SLUG.get(t.distrito_slug),
+        },
+    )
+
+
+@ratelimit(key="ip", rate=TAXA_CONSULTA, block=False)
 def pontos_regiao(request, slug):
     """GeoJSON dos pontos da região pro mapa (#12). Mesmo filtro de base da
     lista/mediana (transacoes_da_regiao) — o mapa ilustra o mesmo número, não
@@ -229,6 +292,7 @@ def pontos_regiao(request, slug):
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [t.lon, t.lat]},
             "properties": {
+                "id": t.id,
                 "endereco": _endereco(t),
                 "valor_fmt": _formatar_rs(t.valor_transacao),
                 "rs_m2_fmt": _formatar_rs(t.rs_m2_construido),

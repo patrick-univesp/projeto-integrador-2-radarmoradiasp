@@ -20,14 +20,16 @@ ordenar (nav de ordenação e "ordenar=" na paginação só aparecem se vier).
     <ul class="transacoes__lista">
       {% for t in transacoes %}
         <li class="transacoes__item">
-          <p class="transacoes__endereco">{{ t.endereco }}</p>
-          <dl class="transacoes__grade">
-            <div><dt>valor</dt><dd>R$&nbsp;{{ t.valor_fmt }}</dd></div>
-            <div><dt>R$/m²</dt><dd>{% if t.rs_m2_fmt %}R$&nbsp;{{ t.rs_m2_fmt }}{% else %}<span aria-label="não aplicável">—</span>{% endif %}</dd></div>
-            <div><dt>área construída</dt><dd>{% if t.area_construida %}{{ t.area_construida }}&nbsp;m²{% else %}—{% endif %}</dd></div>
-            <div><dt>tipo</dt><dd>{{ t.uso_grupo|default:"—" }}</dd></div>
-            <div><dt>data</dt><dd>{{ t.data|date:"d/m/Y"|default:"—" }}</dd></div>
-          </dl>
+          <a class="transacoes__link" href="{% url 'radar:transacao' t.id %}">
+            <p class="transacoes__endereco">{{ t.endereco }}</p>
+            <dl class="transacoes__grade">
+              <div><dt>valor</dt><dd>R$&nbsp;{{ t.valor_fmt }}</dd></div>
+              <div><dt>R$/m²</dt><dd>{% if t.rs_m2_fmt %}R$&nbsp;{{ t.rs_m2_fmt }}{% else %}<span aria-label="não aplicável">—</span>{% endif %}</dd></div>
+              <div><dt>área construída</dt><dd>{% if t.area_construida %}{{ t.area_construida }}&nbsp;m²{% else %}—{% endif %}</dd></div>
+              <div><dt>tipo</dt><dd>{{ t.uso_grupo|default:"—" }}</dd></div>
+              <div><dt>data</dt><dd>{{ t.data|date:"d/m/Y"|default:"—" }}</dd></div>
+            </dl>
+          </a>
         </li>
       {% endfor %}
     </ul>

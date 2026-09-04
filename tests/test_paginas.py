@@ -499,6 +499,116 @@ def test_cep_lista_pagina(client):
     assert pagina_2.count('class="transacoes__item"') == total - TRANSACOES_POR_PAGINA
 
 
+# ---- /transacao/<id>/ (#13) ----
+
+
+@pytest.mark.django_db
+def test_transacao_mostra_dados_basicos(client):
+    t = _transacao_regiao(
+        logradouro="Rua Bresser", numero="100",
+        area_construida=Decimal("80"), uso_grupo="Apartamento / res. vertical",
+        rs_m2_construido=Decimal("9500"),
+    )
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "Rua Bresser, 100" in corpo
+    assert "80" in corpo
+    assert "Apartamento / res. vertical" in corpo
+    assert "9.500" in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_geo_nivel_traduzido_sem_codigo_tecnico(client):
+    """Critério da #13: nenhum código técnico (T2, uso_cod) visível ao usuário."""
+    t = _transacao_regiao(geo_nivel="T2")
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "endereço aproximado" in corpo
+    assert ">T2<" not in corpo
+    assert "uso_cod" not in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_geo_nivel_t4_marca_precisao_como_aviso(client):
+    t = _transacao_regiao(geo_nivel="T4")
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "cerca de 100 m" in corpo
+    assert 'class="transacao__precisao aviso"' in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_geo_nivel_t1_nao_marca_aviso(client):
+    t = _transacao_regiao(geo_nivel="T1")
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "lote exato" in corpo
+    assert 'class="transacao__precisao aviso"' not in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_sem_geo_nivel_mostra_precisao_padrao(client):
+    t = _transacao_regiao(geo_nivel="")
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "sem localização" in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_rs_m2_nulo_sem_area_explica_terreno(client):
+    """Métrica não aplicável tem explicação, não um traço mudo (critério da #13)."""
+    t = _transacao_regiao(area_construida=None, rs_m2_construido=None, uso_grupo="Terreno")
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "não tem área construída registrada" in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_rs_m2_nulo_com_area_explica_fracao(client):
+    t = _transacao_regiao(area_construida=Decimal("120"), rs_m2_construido=None)
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "só uma fração do imóvel" in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_linka_de_volta_para_a_regiao(client):
+    t = _transacao_regiao()
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert 'href="/regiao/mooca/"' in corpo
+    assert "Mooca" in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_sem_regiao_correspondente_nao_mostra_link_voltar(client):
+    t = _transacao_regiao(distrito_slug="")
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "transacao__voltar" not in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_id_inexistente_da_404(client):
+    r = client.get(reverse("radar:transacao", args=[999999]))
+    assert r.status_code == 404
+
+
+@pytest.mark.django_db
+def test_transacao_sem_script_ou_style_inline(client):
+    """Mesma regra da #11/#12: a CSP de produção bloqueia inline sem aviso."""
+    t = _transacao_regiao()
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "<style" not in corpo
+    scripts_inline = re.findall(r"<script(?![^>]*\ssrc=)[^>]*>(.*?)</script>", corpo, re.S)
+    assert not [s for s in scripts_inline if s.strip()], "há script inline no HTML"
+
+
+@pytest.mark.django_db
+def test_lista_de_transacoes_da_regiao_linka_para_o_detalhe(client):
+    t = _transacao_regiao(rs_m2_construido=Decimal("9500"))
+    corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    assert f'href="/transacao/{t.id}/"' in corpo
+
+
+@pytest.mark.django_db
+def test_pontos_regiao_inclui_id_da_transacao(client):
+    t = _transacao_regiao(lat=-23.55, lon=-46.61)
+    corpo = client.get(reverse("radar:pontos_regiao", args=["mooca"])).json()
+    assert corpo["features"][0]["properties"]["id"] == t.id
+
+
 @pytest.mark.django_db
 def test_inicio_tem_botao_entrar(client):
     corpo = client.get(reverse("radar:inicio")).content.decode()

@@ -28,10 +28,12 @@
   font-size: 0.8125rem;
 }
 .mapa-regiao__popup-endereco {
+  display: block;
   font-weight: var(--peso-forte);
   color: var(--text);
   margin: 0 0 var(--e-2);
 }
+.mapa-regiao__popup-endereco:hover { color: var(--accent-ink); }
 .mapa-regiao__popup dl {
   display: grid;
   grid-template-columns: auto 1fr;

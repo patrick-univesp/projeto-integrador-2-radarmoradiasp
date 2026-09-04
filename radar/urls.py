@@ -11,5 +11,6 @@ urlpatterns = [
     path("regiao/<slug:slug>/", views.regiao, name="regiao"),
     path("regiao/<slug:slug>/pontos.geojson", views.pontos_regiao, name="pontos_regiao"),
     path("cep/<str:cep>/", views.cep, name="cep"),
+    path("transacao/<int:id>/", views.transacao, name="transacao"),
     path("entrar/", views.entrar, name="entrar"),
 ]

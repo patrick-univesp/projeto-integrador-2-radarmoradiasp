@@ -55,8 +55,9 @@
     var conteudo = document.createElement('div');
     conteudo.className = 'mapa-regiao__popup';
 
-    var endereco = document.createElement('p');
+    var endereco = document.createElement('a');
     endereco.className = 'mapa-regiao__popup-endereco';
+    endereco.href = '/transacao/' + props.id + '/';
     endereco.textContent = props.endereco;
     conteudo.appendChild(endereco);
 
