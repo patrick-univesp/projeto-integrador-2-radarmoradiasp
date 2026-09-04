@@ -488,6 +488,24 @@ def test_regiao_grafico_da_serie_usa_ponto_decimal(client):
     assert not re.search(r'\b(?:cx|cy|x|y)="\d+,\d+"', corpo)
 
 
+@pytest.mark.django_db
+def test_regiao_grafico_da_serie_exibe_valores_dos_pontos(client):
+    """Garante que tanto no mobile quanto no desktop os valores dos pontos estão visíveis:
+    painel de destaque, atributos data-valor, title no ponto e tabela mês a mês."""
+    _transacao_regiao(data_transacao=dt.date(2026, 5, 1), ano_transacao=2026, rs_m2_construido=Decimal("10000"))
+    _transacao_regiao(data_transacao=dt.date(2026, 6, 1), ano_transacao=2026, rs_m2_construido=Decimal("12000"))
+    corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    assert 'id="serie-painel"' in corpo
+    assert 'id="serie-painel-valor"' in corpo
+    assert "12.000/m²" in corpo
+    assert 'class="serie__ponto-grupo' in corpo
+    assert 'data-valor="R$&#160;10.000/m²"' in corpo or 'data-valor="R$ 10.000/m²"' in corpo
+    assert "10.000/m²" in corpo
+    assert 'class="serie__tabela-detalhes"' in corpo
+    assert "serie_grafico.js" in corpo
+
+
+
 # ---- /cep/<cep>/ (#28) ----
 
 

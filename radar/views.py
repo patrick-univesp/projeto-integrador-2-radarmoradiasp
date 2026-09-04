@@ -209,7 +209,13 @@ def _grafico_serie(serie):
             "n": p["n_transacoes"],
             "fraco": p["fraco"],
             "tem_dado": p["mediana_rs_m2"] is not None,
+            "valor_fmt": _formatar_rs(p["mediana_rs_m2"]) if p["mediana_rs_m2"] is not None else None,
         })
+
+    pontos_com_dado = [pt for pt in pontos if pt["tem_dado"]]
+    ultimo_ponto = pontos_com_dado[-1] if pontos_com_dado else None
+    for pt in pontos:
+        pt["ativo"] = (pt is ultimo_ponto)
 
     segmentos = []
     atual = []
@@ -234,6 +240,7 @@ def _grafico_serie(serie):
         "y_rotulos": _num(y_base + 14),
         "rotulo_topo": _formatar_rs(v_max),
         "rotulo_base": _formatar_rs(v_min),
+        "ultimo_ponto": ultimo_ponto,
     }
 
 

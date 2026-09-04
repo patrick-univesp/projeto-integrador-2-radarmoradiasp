@@ -63,7 +63,21 @@
         <p class="serie__legenda">Mediana de R$/m² por mês, pela data do negócio (não pela data de
           pagamento da guia). Pontos mais claros são meses com poucas vendas — a mediana ali é
           menos confiável.</p>
-        <p class="serie__eixo">R$&#160;{{ grafico_serie.rotulo_base }} a R$&#160;{{ grafico_serie.rotulo_topo }} por m²</p>
+
+        {% if grafico_serie.ultimo_ponto %}
+          <div class="serie__painel" id="serie-painel" aria-live="polite">
+            <div class="serie__painel-info">
+              <span class="serie__painel-mes" id="serie-painel-mes">{{ grafico_serie.ultimo_ponto.mes_rotulo }}</span>
+              <span class="serie__painel-sep" aria-hidden="true">·</span>
+              <strong class="serie__painel-valor" id="serie-painel-valor">R$&#160;{{ grafico_serie.ultimo_ponto.valor_fmt }}/m²</strong>
+              <span class="serie__painel-n" id="serie-painel-n">({{ grafico_serie.ultimo_ponto.n }} transaç{{ grafico_serie.ultimo_ponto.n|pluralize:"ão,ões" }})</span>
+              <span class="serie__painel-aviso{% if not grafico_serie.ultimo_ponto.fraco %} serie__painel-aviso--oculto{% endif %}" id="serie-painel-aviso">poucas vendas, mediana pouco confiável</span>
+            </div>
+            <p class="serie__painel-dica">Toque ou passe o mouse nos pontos para ver outros meses</p>
+          </div>
+        {% endif %}
+
+        <p class="serie__eixo">Escala do gráfico: R$&#160;{{ grafico_serie.rotulo_base }} a R$&#160;{{ grafico_serie.rotulo_topo }} por m²</p>
         <svg class="serie__grafico" viewBox="0 0 {{ grafico_serie.largura }} {{ grafico_serie.altura }}"
              role="img" aria-label="Gráfico de linha da evolução mensal do valor típico por metro quadrado">
           <line class="serie__grade" x1="0" y1="{{ grafico_serie.y_topo }}"
@@ -75,14 +89,52 @@
           {% endfor %}
           {% for p in grafico_serie.pontos %}
             {% if p.tem_dado %}
-              <circle class="serie__ponto{% if p.fraco %} serie__ponto--fraco{% endif %}"
-                      cx="{{ p.x }}" cy="{{ p.y }}" r="{% if p.fraco %}2.5{% else %}3.5{% endif %}">
-                <title>{{ p.mes_rotulo }}: {{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}{% if p.fraco %} — poucas vendas, mediana pouco confiável{% endif %}</title>
-              </circle>
+              <g class="serie__ponto-grupo{% if p.ativo %} serie__ponto-grupo--ativo{% endif %}"
+                 tabindex="0" role="button"
+                 aria-label="{{ p.mes_rotulo }}: R$ {{ p.valor_fmt }}/m², {{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}{% if p.fraco %}, mediana pouco confiável{% endif %}"
+                 data-mes="{{ p.mes_rotulo }}"
+                 data-valor="R$&#160;{{ p.valor_fmt }}/m²"
+                 data-n="{{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}"
+                 data-fraco="{% if p.fraco %}1{% else %}0{% endif %}">
+                <circle class="serie__alvo" cx="{{ p.x }}" cy="{{ p.y }}" r="16" />
+                <circle class="serie__ponto{% if p.fraco %} serie__ponto--fraco{% endif %}"
+                        cx="{{ p.x }}" cy="{{ p.y }}" r="{% if p.fraco %}2.5{% else %}3.5{% endif %}">
+                  <title>{{ p.mes_rotulo }}: R$ {{ p.valor_fmt }}/m² ({{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}){% if p.fraco %} — poucas vendas, mediana pouco confiável{% endif %}</title>
+                </circle>
+              </g>
             {% endif %}
             <text class="serie__rotulo-mes" x="{{ p.x }}" y="{{ grafico_serie.y_rotulos }}" text-anchor="{{ p.ancora }}">{{ p.mes_rotulo }}</text>
           {% endfor %}
         </svg>
+
+        <details class="serie__tabela-detalhes">
+          <summary class="serie__tabela-gatilho">Ver valores mês a mês em tabela</summary>
+          <div class="serie__tabela-envoltura">
+            <table class="serie__tabela">
+              <thead>
+                <tr>
+                  <th scope="col">Mês</th>
+                  <th scope="col">Mediana</th>
+                  <th scope="col">Vendas registradas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in grafico_serie.pontos %}
+                  {% if p.tem_dado %}
+                    <tr>
+                      <td>{{ p.mes_rotulo }}</td>
+                      <td><strong>R$&#160;{{ p.valor_fmt }}/m²</strong></td>
+                      <td>
+                        {{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}
+                        {% if p.fraco %}<span class="serie__tabela-fraco">(poucas vendas)</span>{% endif %}
+                      </td>
+                    </tr>
+                  {% endif %}
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
       </section>
     {% else %}
       <p class="serie__vazio">Ainda não há meses suficientes para mostrar a evolução do valor típico
@@ -108,6 +160,9 @@
 {% block js %}
 <script src="{% static 'js/faixa_marcador.js' %}" defer></script>
 {% if mediana_fmt %}
+  {% if grafico_serie %}
+    <script src="{% static 'js/serie_grafico.js' %}" defer></script>
+  {% endif %}
   <script src="{% static 'vendor/maplibre-gl.js' %}" defer></script>
   <script src="{% static 'js/mapa_regiao.js' %}" defer></script>
 {% endif %}

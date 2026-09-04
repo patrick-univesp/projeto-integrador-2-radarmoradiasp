@@ -60,3 +60,130 @@
   color: var(--text-2);
   font-size: var(--t-apoio);
 }
+
+.serie__painel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--raio-cartao);
+  padding: var(--e-2) var(--e-3);
+  margin-bottom: var(--e-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+}
+
+.serie__painel-info {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+  font-size: var(--t-apoio);
+  color: var(--text);
+}
+
+.serie__painel-mes {
+  font-weight: var(--peso-forte);
+  color: var(--text-2);
+}
+
+.serie__painel-valor {
+  font-size: var(--t-secao);
+  font-weight: var(--peso-numero);
+  color: var(--r5);
+  font-variant-numeric: tabular-nums;
+}
+
+.serie__painel-n {
+  font-size: var(--t-apoio);
+  color: var(--text-3);
+}
+
+.serie__painel-aviso {
+  font-size: var(--t-rotulo);
+  background: var(--aviso-suave);
+  color: var(--aviso);
+  border: 1px solid var(--aviso-linha);
+  padding: 1px var(--e-2);
+  border-radius: var(--raio-atalho);
+}
+
+.serie__painel-aviso--oculto {
+  display: none;
+}
+
+.serie__painel-dica {
+  font-size: var(--t-rotulo);
+  color: var(--text-3);
+  margin: 0;
+}
+
+.serie__ponto-grupo {
+  cursor: pointer;
+  outline: none;
+}
+
+.serie__alvo {
+  fill: transparent;
+}
+
+.serie__ponto-grupo--ativo .serie__ponto,
+.serie__ponto-grupo:hover .serie__ponto,
+.serie__ponto-grupo:focus-visible .serie__ponto {
+  r: 5px;
+  stroke: var(--surface);
+  stroke-width: 1.5px;
+}
+
+.serie__tabela-detalhes {
+  margin-top: var(--e-3);
+  border-top: 1px dashed var(--line);
+  padding-top: var(--e-2);
+}
+
+.serie__tabela-gatilho {
+  font-size: var(--t-apoio);
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: var(--peso-forte);
+  user-select: none;
+}
+
+.serie__tabela-gatilho:hover {
+  color: var(--accent-ink);
+}
+
+.serie__tabela-envoltura {
+  margin-top: var(--e-2);
+  overflow-x: auto;
+}
+
+.serie__tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-apoio);
+}
+
+.serie__tabela th,
+.serie__tabela td {
+  padding: var(--e-1) var(--e-2);
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.serie__tabela th {
+  color: var(--text-3);
+  font-size: var(--t-rotulo);
+  font-weight: var(--peso-normal);
+  text-transform: uppercase;
+}
+
+.serie__tabela td strong {
+  color: var(--r5);
+  font-variant-numeric: tabular-nums;
+}
+
+.serie__tabela-fraco {
+  font-size: var(--t-rotulo);
+  color: var(--aviso);
+}
+
