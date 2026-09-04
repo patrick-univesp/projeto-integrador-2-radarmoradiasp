@@ -34,7 +34,7 @@ O município publica as **guias de ITBI pagas** (imposto sobre a transmissão de
 | **Banco**     | SQLite (WAL) — sem servidor de banco; o dado cabe num arquivo                                                          |
 | **Dados**     | guias de ITBI (`.xlsx` da Secretaria da Fazenda de SP) → mineração em streaming, **sem `pandas`/`shapely`** no runtime |
 | **Geo**       | referência de lote/distrito pré-calculada offline e **versionada** em `radar/dados_geo/`; _lookup_ em runtime          |
-| **Frontend**  | HTML + CSS + JS, renderização no servidor; MapLibre GL no mapa (fase 4)                                                |
+| **Frontend**  | HTML + CSS + JS, renderização no servidor; MapLibre GL no mapa (fase 4); ícones de tipo de imóvel de [Tabler Icons](https://tabler.io/icons) (MIT) |
 | **Servidor**  | Gunicorn + WhiteNoise                                                                                                  |
 | **Segurança** | `django-axes` no login do admin; `django-ratelimit` nos endpoints públicos; `.env` via `python-decouple`              |
 | **Qualidade** | pytest, pytest-django, ruff, djlint, bandit, pip-audit                                                                 |

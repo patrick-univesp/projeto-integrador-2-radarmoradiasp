@@ -65,6 +65,30 @@ PRECISAO_GEO_PADRAO = (
     "Esta transação não tem coordenada — não é possível mostrá-la no mapa.",
 )
 
+# uso_grupo -> slug do glifo/ilustração (#18). Slugs batem 1:1 com os 11
+# uso_grupo de radar/carga/mineracao.py::_GRUPOS_USO. Grupo desconhecido ou
+# vazio (GRUPO_OUTROS — uso_cod 73/91, fora da Tabela de USOS) fica sem
+# entrada: o fallback explícito é não mostrar ilustração nenhuma, não uma
+# peça genérica que não existe.
+SLUG_ILUSTRACAO_USO = {
+    "Apartamento / res. vertical": "apartamento",
+    "Terreno": "terreno",
+    "Casa / residência horizontal": "casa",
+    "Loja / comércio": "loja",
+    "Indústria / armazém": "industria",
+    "Garagem": "garagem",
+    "Escritório / consultório": "escritorio",
+    "Institucional": "institucional",
+    "Oficina / serviços": "oficina",
+    "Hotel / saúde / especial": "hotel-saude",
+    "Depósito": "deposito",
+}
+
+
+def _glifo_uso(uso_grupo):
+    slug = SLUG_ILUSTRACAO_USO.get(uso_grupo)
+    return f"img/uso/{slug}.svg" if slug else None
+
 _MESES = (
     "janeiro", "fevereiro", "março", "abril", "maio", "junho",
     "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
@@ -136,6 +160,7 @@ def _transacoes_formatadas(pagina):
             "data": t.data_transacao,
             "valor_fmt": _formatar_rs(t.valor_transacao),
             "rs_m2_fmt": _formatar_rs(t.rs_m2_construido),
+            "glifo_uso": _glifo_uso(t.uso_grupo),
         }
         for t in pagina.object_list
     ]
@@ -253,6 +278,7 @@ def transacao(request, id):
         )
 
     precisao_rotulo, precisao_descricao = PRECISAO_GEO.get(t.geo_nivel, PRECISAO_GEO_PADRAO)
+    slug_uso = SLUG_ILUSTRACAO_USO.get(t.uso_grupo)
 
     return render(
         request,
@@ -260,6 +286,7 @@ def transacao(request, id):
         {
             "t": t,
             "endereco": _endereco(t),
+            "ilustracao_uso": f"img/uso/{slug_uso}-96.webp" if slug_uso else None,
             "valor_fmt": _formatar_rs(t.valor_transacao),
             "rs_m2_fmt": rs_m2_fmt,
             "rs_m2_explicacao": rs_m2_explicacao,

@@ -163,8 +163,16 @@
   text-decoration: none;
 }
 .transacoes__endereco {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
   font-weight: var(--peso-forte);
   color: var(--text);
+}
+.transacoes__glifo {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
 }
 .transacoes__grade {
   margin: var(--e-3) 0 0;

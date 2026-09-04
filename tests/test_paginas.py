@@ -609,6 +609,44 @@ def test_pontos_regiao_inclui_id_da_transacao(client):
     assert corpo["features"][0]["properties"]["id"] == t.id
 
 
+# ---- ilustrações por uso_grupo (#18) ----
+
+
+@pytest.mark.django_db
+def test_lista_mostra_glifo_do_uso_grupo(client):
+    _transacao_regiao(uso_grupo="Apartamento / res. vertical")
+    corpo = client.get(reverse("radar:regiao", args=["mooca"])).content.decode()
+    assert 'src="/static/img/uso/apartamento.svg"' in corpo
+    assert 'class="transacoes__glifo"' in corpo
+    assert 'alt=""' in corpo
+
+
+@pytest.mark.django_db
+def test_lista_uso_grupo_desconhecido_nao_mostra_glifo(client):
+    """Critério da #18: uso_grupo desconhecido cai no fallback sem quebrar a
+    página — aqui o fallback é não mostrar ilustração nenhuma."""
+    _transacao_regiao(uso_grupo="Outros")
+    r = client.get(reverse("radar:regiao", args=["mooca"]))
+    assert r.status_code == 200
+    assert "transacoes__glifo" not in r.content.decode()
+
+
+@pytest.mark.django_db
+def test_transacao_mostra_ilustracao_isometrica_do_uso(client):
+    t = _transacao_regiao(uso_grupo="Casa / residência horizontal")
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert 'src="/static/img/uso/casa-96.webp"' in corpo
+    assert 'class="transacao__ilustracao"' in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_sem_ilustracao_para_uso_desconhecido(client):
+    t = _transacao_regiao(uso_grupo="")
+    r = client.get(reverse("radar:transacao", args=[t.id]))
+    assert r.status_code == 200
+    assert "transacao__ilustracao" not in r.content.decode()
+
+
 @pytest.mark.django_db
 def test_inicio_tem_botao_entrar(client):
     corpo = client.get(reverse("radar:inicio")).content.decode()
@@ -643,12 +681,28 @@ def test_500_renderiza_sem_contexto_de_requisicao():
         "js/busca_animada.js",
         "js/contador_transacoes.js",
         "js/autocomplete.js",
+        "css/transacao.css",
+        "css/mapa.css",
     ],
 )
 def test_estatico_existe(nome):
     from django.contrib.staticfiles import finders
 
     assert finders.find(nome), f"não encontrado em STATICFILES_DIRS: {nome}"
+
+
+def test_todas_as_ilustracoes_de_uso_existem():
+    """#18: os 11 slugs de SLUG_ILUSTRACAO_USO têm glifo SVG (lista) e WebP
+    96/192/384 (detalhe/mapa/cartão) de verdade em static/, sem CDN."""
+    from django.contrib.staticfiles import finders
+
+    from radar.views import SLUG_ILUSTRACAO_USO
+
+    faltando = []
+    for slug in SLUG_ILUSTRACAO_USO.values():
+        arquivos = [f"img/uso/{slug}.svg"] + [f"img/uso/{slug}-{t}.webp" for t in (96, 192, 384)]
+        faltando += [a for a in arquivos if not finders.find(a)]
+    assert not faltando, f"faltando em STATICFILES_DIRS: {faltando}"
 
 
 @pytest.mark.django_db

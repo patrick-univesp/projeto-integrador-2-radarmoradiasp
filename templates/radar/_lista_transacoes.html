@@ -1,3 +1,4 @@
+{% load static %}
 {% comment %}
 Cartões + paginação de uma lista de Transacao, reusado por regiao.html (#10) e
 cep.html (#28) — mesma marcação para as duas não divergirem. Contexto esperado
@@ -21,7 +22,10 @@ ordenar (nav de ordenação e "ordenar=" na paginação só aparecem se vier).
       {% for t in transacoes %}
         <li class="transacoes__item">
           <a class="transacoes__link" href="{% url 'radar:transacao' t.id %}">
-            <p class="transacoes__endereco">{{ t.endereco }}</p>
+            <p class="transacoes__endereco">
+              {% if t.glifo_uso %}<img class="transacoes__glifo" src="{% static t.glifo_uso %}" alt="" width="20" height="20" loading="lazy">{% endif %}
+              {{ t.endereco }}
+            </p>
             <dl class="transacoes__grade">
               <div><dt>valor</dt><dd>R$&nbsp;{{ t.valor_fmt }}</dd></div>
               <div><dt>R$/m²</dt><dd>{% if t.rs_m2_fmt %}R$&nbsp;{{ t.rs_m2_fmt }}{% else %}<span aria-label="não aplicável">—</span>{% endif %}</dd></div>

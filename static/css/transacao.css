@@ -1,5 +1,14 @@
 /* Radar da Moradia SP — detalhe de uma transação (#13) */
 
+.transacao__cabecalho {
+  display: flex;
+  align-items: center;
+  gap: var(--e-4);
+}
+.transacao__ilustracao {
+  flex-shrink: 0;
+}
+
 .transacao__voltar {
   display: inline-block;
   margin-bottom: var(--e-4);

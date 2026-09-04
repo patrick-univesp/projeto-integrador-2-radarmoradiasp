@@ -18,8 +18,15 @@
     <a class="transacao__voltar" href="{% url 'radar:regiao' regiao.slug %}">← {{ regiao.nome }}</a>
   {% endif %}
 
-  <p class="mono transacao__rotulo">Transação</p>
-  <h1 class="transacao__endereco">{{ endereco }}</h1>
+  <div class="transacao__cabecalho">
+    {% if ilustracao_uso %}
+      <img class="transacao__ilustracao" src="{% static ilustracao_uso %}" alt="" width="96" height="96" loading="lazy">
+    {% endif %}
+    <div>
+      <p class="mono transacao__rotulo">Transação</p>
+      <h1 class="transacao__endereco">{{ endereco }}</h1>
+    </div>
+  </div>
 
   <p class="transacao__valor">R$&nbsp;{{ valor_fmt }}</p>
 
