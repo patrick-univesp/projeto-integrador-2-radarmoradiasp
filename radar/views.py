@@ -1,10 +1,11 @@
 from decimal import Decimal
 
-from django.http import Http404, HttpResponsePermanentRedirect
+from django.http import Http404, HttpResponsePermanentRedirect, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django_ratelimit.decorators import ratelimit
 
+from radar.buscas import sugerir_regioes
 from radar.estatisticas import estatisticas_regiao
 from radar.models import Transacao
 from radar.regioes import APELIDOS, POR_SLUG
@@ -16,6 +17,10 @@ REGIOES_DESTAQUE_SLUGS = ("mooca", "itaim-bibi", "tatuape", "santana", "vila-mar
 # Uma navegação por requisição — mais apertado que faria sentido pro autocomplete
 # (#06, que dispara várias por busca). Issue #07.
 TAXA_CONSULTA = "30/m"
+
+# O autocomplete dispara mais de uma requisição por busca digitada (mesmo com
+# debounce no cliente) — mais generoso que TAXA_CONSULTA de propósito.
+TAXA_SUGESTOES = "60/m"
 
 _MESES = (
     "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -138,6 +143,14 @@ def regiao(request, slug):
             ),
         },
     )
+
+
+@ratelimit(key="ip", rate=TAXA_SUGESTOES, block=False)
+def sugestoes(request):
+    if request.limited:
+        return JsonResponse({"sugestoes": []}, status=429)
+    termo = request.GET.get("q", "")
+    return JsonResponse({"sugestoes": sugerir_regioes(termo)})
 
 
 def entrar(request):
