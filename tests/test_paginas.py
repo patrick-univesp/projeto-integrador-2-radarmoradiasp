@@ -855,6 +855,35 @@ def test_css_nao_tem_cor_literal():
         assert not re.search(r"\b(rgb|hsl|oklch)\(", pintura), f"{css_file.name} contém função de cor literal"
 
 
+def test_t_numero_encolhe_em_telas_estreitas():
+    """Achado real ao medir com a base inteira: "R$ 6.705,43/m²" (uma mediana
+    comum) e valores de transação de verdade estouravam a tela a 320-374px com
+    --t-numero fixo em 3.25rem — a amostra de dev usada até então tinha poucos
+    dígitos e escondia o problema."""
+    from pathlib import Path
+
+    tokens = Path("static/css/tokens.css").read_text()
+    inicio = tokens.index("@media (max-width:")
+    bloco = tokens[inicio:tokens.index("}", tokens.index("}", inicio) + 1)]
+    assert "--t-numero:" in bloco
+
+
+def test_numeros_grandes_tem_rede_de_seguranca_contra_estouro():
+    """Mesmo com --t-numero responsivo, um valor fora da curva (ex.: transação
+    de R$ 894 milhões, real na base) ainda pode não caber — sem isto, a página
+    ganha rolagem horizontal e esconde conteúdo em vez de quebrar a linha."""
+    from pathlib import Path
+
+    for arquivo, classe in (
+        ("static/css/regiao.css", ".regiao__numero"),
+        ("static/css/transacao.css", ".transacao__valor"),
+    ):
+        css = Path(arquivo).read_text()
+        inicio = css.index(classe)
+        bloco = css[inicio:css.index("}", inicio)]
+        assert "overflow-wrap" in bloco, f"{arquivo}: {classe} sem overflow-wrap"
+
+
 # ---- /comparar/ (comparação entre regiões) ----
 
 

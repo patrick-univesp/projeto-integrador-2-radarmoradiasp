@@ -70,15 +70,15 @@
   --erro:          oklch(0.460 0.200 15);   /* tinta — 7,2:1 sobre --bg */
   --erro-suave:    #FFE8E8;
   --erro-suave:    oklch(0.955 0.032 18);   /* fundo do bloco */
-  --erro-linha:    #C57D81;
-  --erro-linha:    oklch(0.666 0.090 16);   /* borda — 3,0:1 */
+  --erro-linha:    #B66F74;
+  --erro-linha:    oklch(0.620 0.090 16);   /* borda — 3,6:1 sobre --bg, 3,3:1 sobre --erro-suave */
 
   --aviso:         #724E00;
   --aviso:         oklch(0.450 0.115 85);   /* tinta — 7,1:1 sobre --bg */
   --aviso-suave:   #FEF1D0;
   --aviso-suave:   oklch(0.960 0.045 88);
-  --aviso-linha:   #A88D56;
-  --aviso-linha:   oklch(0.656 0.080 85);   /* borda — 3,0:1 */
+  --aviso-linha:   #9D824C;
+  --aviso-linha:   oklch(0.620 0.080 84);   /* borda — 3,5:1 sobre --bg, 3,3:1 sobre --aviso-suave */
 
   --hatch:         #D9CFC7;
   --hatch:         oklch(0.860 0.016 62);
@@ -116,6 +116,14 @@
 
 @media (min-width: 768px) {
   :root { --margem-lateral: var(--e-12); }
+}
+
+@media (max-width: 399px) {
+  /* --t-numero cabia na amostra de dev (poucos dígitos) mas não num R$/m² ou
+     valor de transação de verdade a 320-374px — achado ao medir com a base
+     inteira: "R$ 6.705,43/m²" e valores de transação estouram a tela e criam
+     rolagem horizontal. */
+  :root { --t-numero: 2.5rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -171,6 +179,16 @@
  *
  * [AJUSTE 4] Adicionados --erro e --aviso (com -suave e -linha).
  *   Nao existiam no canvas e sao necessarios para 404, 500, o 429 do limite de
- *   taxa (#07) e o aviso de poucas vendas na regiao (#09). Ver o comentario na
- *   propria declaracao, acima.
+ *   taxa e o aviso de poucas vendas na regiao. Ver o comentario na propria
+ *   declaracao, acima.
+ *
+ * [AJUSTE 5] --erro-linha e --aviso-linha escurecidos (mesmo matiz/croma):
+ *   erro 0.666->0.620, aviso 0.656->0.620.
+ *   A verificacao anterior so tinha medido a borda contra --bg (3,0:1, no
+ *   limite). Um teste que calcula os pares a partir do proprio tokens.css
+ *   (tests/test_contraste.py) achou o par que faltava: a borda tambem
+ *   encosta no proprio preenchimento "-suave" do componente (.erro/.aviso
+ *   tem border + background), e ali reprovava (2,71:1 e 2,83:1). Os valores
+ *   atuais passam AA nos dois lados, com folga (>=3,2:1) — a licao do
+ *   AJUSTE 1 sobre "sem folga nenhuma" se aplica aqui tambem.
  * ========================================================================= */

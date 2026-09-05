@@ -33,6 +33,10 @@
   color: var(--text);
   font-variant-numeric: tabular-nums;
   line-height: 1.05;
+  /* Rede de segurança: nenhuma combinação de dígitos reais deveria precisar
+     disto (--t-numero já é responsivo), mas um valor fora da curva não pode
+     criar rolagem horizontal na página inteira — quebra o número, não o layout. */
+  overflow-wrap: break-word;
 }
 .regiao__unidade {
   margin-left: var(--e-1);

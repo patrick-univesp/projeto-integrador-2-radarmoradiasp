@@ -111,6 +111,38 @@ def test_dry_run_nao_grava():
     assert Transacao.objects.count() == 0
 
 
+def _tem_estatisticas_de(tabela):
+    """``sqlite_stat1`` só existe depois do primeiro ``ANALYZE`` — sem checar a
+    existência da tabela primeiro, a consulta falharia com "no such table" numa
+    base que nunca rodou ANALYZE."""
+    from django.db import connection
+
+    with connection.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='sqlite_stat1'")
+        if not cur.fetchone()[0]:
+            return False
+        cur.execute("SELECT COUNT(*) FROM sqlite_stat1 WHERE tbl=%s", [tabela])
+        return cur.fetchone()[0] > 0
+
+
+@pytest.mark.django_db
+def test_carga_de_verdade_atualiza_estatisticas_do_otimizador():
+    """Achado real: sem ``ANALYZE``, o otimizador do SQLite escolhe o índice
+    errado pra uma região sem nenhuma transação (o de ``qualidade``, que cobre
+    quase toda a tabela, em vez do de ``distrito_slug``) — ~230ms por página
+    contra ~15ms depois do fix. Roda de novo a cada carga porque a distribuição
+    muda."""
+    assert not _tem_estatisticas_de("radar_transacao")
+    _carregar()
+    assert _tem_estatisticas_de("radar_transacao")
+
+
+@pytest.mark.django_db
+def test_dry_run_nao_atualiza_estatisticas_do_otimizador():
+    _carregar(dry_run=True)
+    assert not _tem_estatisticas_de("radar_transacao")
+
+
 @pytest.mark.django_db
 def test_abas_filtra():
     _carregar(abas=["FEV-2026"])

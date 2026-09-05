@@ -34,6 +34,9 @@
   color: var(--text);
   font-variant-numeric: tabular-nums;
   line-height: 1.05;
+  /* Mesma rede de segurança de regiao.css: um valor de transação fora da
+     curva não pode criar rolagem horizontal na página inteira. */
+  overflow-wrap: break-word;
 }
 
 .transacao__grade {

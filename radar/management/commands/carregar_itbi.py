@@ -12,7 +12,7 @@ from decimal import Decimal
 
 import openpyxl
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
+from django.db import connection, transaction
 
 from radar.carga import coercao, geo_ref, mineracao
 from radar.carga.normalizacao import normalizar_bairro
@@ -221,6 +221,16 @@ def carregar(arquivo, abas=None, *, blocos=2000, limite=None, substituir_mes=Fal
                 progresso(dict(cont))
     finally:
         wb.close()
+
+    if not dry_run:
+        # Sem isto, o otimizador do SQLite decide o plano de consulta às cegas
+        # (não existe `sqlite_stat1` recém-criado): pra uma região sem nenhuma
+        # transação, ele escolhe o índice de `qualidade` (que cobre ~99% da
+        # tabela) em vez do índice de `distrito_slug` — achado real, ~230ms por
+        # página contra ~15ms depois do fix. Custa <200ms mesmo com a base
+        # inteira; roda de novo a cada carga porque a distribuição muda.
+        with connection.cursor() as cur:
+            cur.execute("ANALYZE radar_transacao")
 
     resumo = {"total": cont, "por_mes": por_mes, "setores": len(setores),
               "segundos": round(time.monotonic() - t0, 1), "pico_mb": round(_pico_mb())}
