@@ -18,17 +18,17 @@
   <p class="regiao__confianca">baseado em {{ stats.n_com_metrica }} transações</p>
 {% elif stats.confianca == "insuficiente" %}
   <div class="aviso" role="note">
-    Baseado em só {{ stats.n_com_metrica }} venda{{ stats.n_com_metrica|pluralize }} — número com confiança insuficiente. Trate como indicativo, não como referência.
+    Baseado em só {{ stats.n_com_metrica }} venda{{ stats.n_com_metrica|pluralize }}: número com confiança insuficiente. Trate como indicativo, não como referência.
   </div>
 {% else %}
   <div class="aviso" role="note">
-    Baseado em {{ stats.n_com_metrica }} vendas — amostra pequena, o número pode mudar bastante com as
+    Baseado em {{ stats.n_com_metrica }} vendas: amostra pequena, o número pode mudar bastante com as
     próximas transações.
   </div>
 {% endif %}
 
 <ul class="regiao__ressalvas">
-  <li>Esta área é a do cadastro do IPTU e inclui a quota-parte de áreas comuns — por isso este valor fica
+  <li>Esta área é a do cadastro do IPTU e inclui a quota-parte de áreas comuns, então este valor fica
     naturalmente abaixo de índices de anúncio como o FipeZap.</li>
   {% if periodo %}<li>Período coberto pelos dados: {{ periodo }}.</li>{% endif %}
 </ul>

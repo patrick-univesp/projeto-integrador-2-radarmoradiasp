@@ -4,7 +4,7 @@
 {% block titulo %}{{ regiao.nome }} · Radar da Moradia SP{% endblock %}
 {% block descricao %}{% if mediana_fmt %}Valor típico do metro quadrado em {{ regiao.nome }}: R$ {{ mediana_fmt }}/m², a partir de {{ stats.n_com_metrica }} vendas registradas no ITBI.{% else %}Ainda não há vendas suficientes registradas no ITBI para {{ regiao.nome }}.{% endif %}{% endblock %}
 
-{% block og_titulo %}{% if mediana_fmt %}{{ regiao.nome }} · R$ {{ mediana_fmt }}/m² — Radar da Moradia SP{% else %}{{ regiao.nome }} — Radar da Moradia SP{% endif %}{% endblock %}
+{% block og_titulo %}{% if mediana_fmt %}{{ regiao.nome }} · R$ {{ mediana_fmt }}/m² · Radar da Moradia SP{% else %}{{ regiao.nome }} · Radar da Moradia SP{% endif %}{% endblock %}
 {% block og_descricao %}{% if mediana_fmt %}Valor típico do metro quadrado em {{ regiao.nome }}, a partir de {{ stats.n_com_metrica }} vendas registradas no ITBI.{% if stats.confianca != "ok" %} Poucas vendas na região: número com baixa confiança.{% endif %}{% if p25_fmt and p75_fmt and p25_fmt != p75_fmt %} A maioria entre R$ {{ p25_fmt }} e R$ {{ p75_fmt }}/m².{% endif %}{% else %}Ainda não há vendas suficientes registradas no ITBI para calcular um valor típico em {{ regiao.nome }}.{% endif %}{% endblock %}
 
 {% block css %}
@@ -46,7 +46,7 @@
           <section class="serie" aria-labelledby="serie-titulo">
             <h2 id="serie-titulo" class="serie__titulo">Evolução do valor típico</h2>
             <p class="serie__legenda">Mediana de R$/m² por mês, pela data do negócio (não pela data de
-              pagamento da guia). Pontos mais claros são meses com poucas vendas — a mediana ali é
+              pagamento da guia). Pontos mais claros são meses com poucas vendas, e a mediana ali é
               menos confiável.</p>
 
             {% if grafico_serie.ultimo_ponto %}
@@ -87,7 +87,7 @@
                     <circle class="serie__alvo" cx="{{ p.x }}" cy="{{ p.y }}" r="16" />
                     <circle class="serie__ponto{% if p.fraco %} serie__ponto--fraco{% endif %}"
                             cx="{{ p.x }}" cy="{{ p.y }}" r="{% if p.fraco %}2.5{% else %}3.5{% endif %}">
-                      <title>{{ p.mes_rotulo }}: R$ {{ p.valor_fmt }}/m² ({{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}){% if p.fraco %} — poucas vendas, mediana pouco confiável{% endif %}</title>
+                      <title>{{ p.mes_rotulo }}: R$ {{ p.valor_fmt }}/m² ({{ p.n }} transaç{{ p.n|pluralize:"ão,ões" }}){% if p.fraco %}, poucas vendas, mediana pouco confiável{% endif %}</title>
                     </circle>
                   </g>
                 {% endif %}
@@ -138,7 +138,7 @@
 
       <aside class="regiao__bloco-mapa">
         <section class="mapa-regiao">
-          <p class="mapa-regiao__legenda">Mapa da região — pontos mais claros são
+          <p class="mapa-regiao__legenda">Mapa da região: pontos mais claros são
             aproximados (centroide da quadra, cerca de 100 m).</p>
           <div id="mapa-regiao" class="mapa-regiao__mapa" aria-hidden="true"
                data-slug="{{ regiao.slug }}" data-distrito="{{ regiao.distrito }}"></div>

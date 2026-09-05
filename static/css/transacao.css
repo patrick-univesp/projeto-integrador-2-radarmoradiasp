@@ -10,12 +10,24 @@
 }
 
 .transacao__voltar {
-  display: inline-block;
-  margin-bottom: var(--e-4);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-1);
+  min-height: var(--alvo-toque);
+  margin-bottom: var(--e-2);
   font-size: var(--t-apoio);
-  color: var(--text-2);
+  font-weight: 500;
+  color: var(--accent);
 }
-.transacao__voltar:hover { color: var(--accent-ink); }
+.transacao__voltar:hover {
+  color: var(--accent-ink);
+  text-decoration: underline;
+}
+.transacao__voltar-icone {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
 
 .transacao__rotulo { margin-bottom: var(--e-2); }
 
@@ -39,10 +51,28 @@
   overflow-wrap: break-word;
 }
 
-.transacao__grade {
-  margin: var(--e-6) 0 0;
-  padding-top: var(--e-5);
+.transacao__selo {
+  display: inline-block;
+  margin-top: var(--e-3);
+  margin-right: var(--e-2);
+  padding: 2px var(--e-2);
+  font-size: var(--t-apoio);
+  font-weight: var(--peso-forte);
+  background: var(--aviso-suave);
+  color: var(--aviso);
+  border: 1px solid var(--aviso-linha);
+  border-radius: var(--raio-atalho);
+}
+a.transacao__selo:hover { text-decoration: underline; }
+
+.transacao__secao {
+  margin-top: var(--e-5);
+  padding-top: var(--e-4);
   border-top: 1px solid var(--line);
+}
+.transacao__secao-rotulo { margin-bottom: var(--e-3); }
+
+.transacao__grade {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--e-4);
@@ -87,8 +117,20 @@
   left: 0;
 }
 
+.transacao__local {
+  margin-top: var(--e-5);
+  padding-top: var(--e-4);
+  border-top: 1px solid var(--line);
+}
+.transacao__mapa {
+  height: 260px;
+  border-radius: var(--raio-cartao);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
 .transacao__precisao {
-  margin-top: var(--e-6);
+  margin-top: var(--e-3);
   padding: var(--e-4) var(--e-5);
   background: var(--surface-2);
   border: 1px solid var(--line);
@@ -112,7 +154,7 @@
 }
 
 @media (min-width: 480px) {
-  .transacao__grade { grid-template-columns: repeat(4, 1fr); }
+  .transacao__grade { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (min-width: 720px) {

@@ -78,7 +78,7 @@
     if (props.aproximado) {
       var aviso = document.createElement('p');
       aviso.className = 'mapa-regiao__popup-aviso';
-      aviso.textContent = 'Localização aproximada — centroide da quadra, cerca de 100 m.';
+      aviso.textContent = 'Localização aproximada: centroide da quadra, cerca de 100 m.';
       conteudo.appendChild(aviso);
     }
     return conteudo;

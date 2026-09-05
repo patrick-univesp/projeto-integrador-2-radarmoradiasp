@@ -8,6 +8,7 @@ from django.urls import reverse
 from django_ratelimit.decorators import ratelimit
 
 from radar.buscas import sugerir_regioes
+from radar.carga.mineracao import cod_natureza
 from radar.estatisticas import estatisticas_regiao, serie_mensal, transacoes_da_regiao
 from radar.models import Transacao
 from radar.regioes import APELIDOS, POR_SLUG
@@ -48,7 +49,7 @@ PRECISAO_GEO = {
     "T1": ("lote exato", "A coordenada aponta para o lote exato deste imóvel."),
     "T2": (
         "endereço aproximado",
-        "A coordenada resolve o endereço dentro da quadra — comum em apartamentos, "
+        "A coordenada resolve o endereço dentro da quadra, comum em apartamentos, "
         "cujo lote individual não existe no cadastro de lotes.",
     ),
     "T3": (
@@ -62,25 +63,25 @@ PRECISAO_GEO = {
 }
 PRECISAO_GEO_PADRAO = (
     "sem localização",
-    "Esta transação não tem coordenada — não é possível mostrá-la no mapa.",
+    "Esta transação não tem coordenada, então não é possível mostrá-la no mapa.",
 )
 
 # Tradução de qualidade (bitmask, radar/carga/mineracao.py::qualidade) pra
 # linguagem comum — mesmo raciocínio do PRECISAO_GEO: nenhum código técnico
 # chega ao template. Uma transação pode acumular mais de uma ressalva.
 QUALIDADE_RESSALVAS = {
-    1: "As colunas desta linha vieram deslocadas na planilha original — algum "
+    1: "As colunas desta linha vieram deslocadas na planilha original, então algum "
        "campo pode estar com o valor errado.",
     2: "A base de cálculo do imposto não bate com o valor declarado nem com o "
        "valor de referência da Prefeitura.",
-    4: "O valor declarado é simbólico (abaixo de R$ 1.000) — não representa o "
+    4: "O valor declarado é simbólico (abaixo de R$ 1.000): não representa o "
        "preço real do imóvel.",
     8: "O valor financiado pelo banco é maior que o valor declarado da "
-       "transação — o valor declarado provavelmente não é o preço real do negócio.",
-    16: "A data da transação está fora da faixa plausível — pode ser erro de "
+       "transação, então o valor declarado provavelmente não é o preço real do negócio.",
+    16: "A data da transação está fora da faixa plausível: pode ser erro de "
         "digitação na planilha original.",
     32: "O cadastro deste imóvel na Prefeitura (SQL) foi cancelado ou não existe "
-        "para o exercício atual — o tipo, a área e o uso registrados podem não "
+        "para o exercício atual, então o tipo, a área e o uso registrados podem não "
         "corresponder mais ao imóvel negociado.",
 }
 
@@ -517,10 +518,10 @@ def transacao(request, id):
     if rs_m2_fmt is None:
         rs_m2_explicacao = (
             "Este imóvel não tem área construída registrada (é um terreno, ou a guia "
-            "não trouxe essa informação) — R$/m² não se aplica."
+            "não trouxe essa informação): R$/m² não se aplica."
             if not t.area_construida
             else "A guia registra só uma fração do imóvel (ex.: transferência de "
-            "cota-parte) — o valor não representa o imóvel inteiro, então R$/m² não "
+            "cota-parte): o valor não representa o imóvel inteiro, então R$/m² não "
             "é calculado."
         )
 
@@ -539,6 +540,9 @@ def transacao(request, id):
             # mesmo tratamento que financiamento_incompativel já dá na carga.
             "valor_financiado_fmt": _formatar_rs(t.valor_financiado) if t.valor_financiado else None,
             "natureza_fmt": _sem_prefixo_numerico(t.natureza),
+            # Compra e venda é o caso comum (~95%) — o template só mostra a
+            # natureza quando NÃO é, porque aí o preço não é de mercado livre.
+            "natureza_comum": cod_natureza(t.natureza) == 1,
             "tipo_financiamento_fmt": _sem_prefixo_numerico(t.tipo_financiamento),
             "rs_m2_fmt": rs_m2_fmt,
             "rs_m2_explicacao": rs_m2_explicacao,
@@ -546,6 +550,8 @@ def transacao(request, id):
             "precisao_rotulo": precisao_rotulo,
             "precisao_descricao": precisao_descricao,
             "precisao_aproximada": t.geo_nivel == GEO_NIVEL_APROXIMADO,
+            # T3/T4: coordenada sem precisão de lote — o mapa mostra um halo difuso.
+            "geo_fuzzy": t.geo_nivel in ("T3", "T4"),
             "regiao": POR_SLUG.get(t.distrito_slug),
         },
     )

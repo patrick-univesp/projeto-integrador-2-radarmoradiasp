@@ -231,7 +231,7 @@ def test_regiao_og_tags_trazem_nome_e_valor_tipico(client):
 @pytest.mark.django_db
 def test_regiao_og_tags_genericas_quando_nao_ha_dados(client):
     corpo = client.get(reverse("radar:regiao", args=["marsilac"])).content.decode()
-    assert 'property="og:title" content="Marsilac —' in corpo
+    assert 'property="og:title" content="Marsilac ·' in corpo
 
 
 @pytest.mark.django_db
@@ -632,6 +632,31 @@ def test_transacao_sem_geo_nivel_mostra_precisao_padrao(client):
 
 
 @pytest.mark.django_db
+def test_transacao_com_coordenada_mostra_mapa(client):
+    t = _transacao_regiao(geo_nivel="T2", lat=-23.55, lon=-46.63)
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert 'id="mapa-transacao"' in corpo
+    assert 'data-lon="-46.63' in corpo and 'data-lat="-23.55' in corpo
+    assert 'data-fuzzy="0"' in corpo  # T2 é ponto, não halo
+    assert "maplibre-gl.js" in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_geo_difuso_marca_halo_no_mapa(client):
+    t = _transacao_regiao(geo_nivel="T4", lat=-23.55, lon=-46.63)
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert 'data-fuzzy="1"' in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_sem_coordenada_nao_carrega_o_mapa(client):
+    t = _transacao_regiao(geo_nivel="", lat=None, lon=None)
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "mapa-transacao" not in corpo
+    assert "maplibre-gl.js" not in corpo
+
+
+@pytest.mark.django_db
 def test_transacao_rs_m2_nulo_sem_area_explica_terreno(client):
     """Métrica não aplicável tem explicação, não um traço mudo (critério da #13)."""
     t = _transacao_regiao(area_construida=None, rs_m2_construido=None, uso_grupo="Terreno")
@@ -662,11 +687,31 @@ def test_transacao_mostra_valor_financiado_quando_presente(client):
 
 
 @pytest.mark.django_db
-def test_transacao_mostra_natureza_sem_prefixo_numerico(client):
+def test_transacao_natureza_incomum_mostra_selo_sem_prefixo_numerico(client):
+    t = _transacao_regiao(natureza="4.Arrematação (em leilão ou hasta pública)")
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert 'class="transacao__selo"' in corpo
+    assert "Arrematação (em leilão ou hasta pública)" in corpo
+    assert "4.Arrematação" not in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_compra_e_venda_nao_polui_a_pagina(client):
+    """Compra e venda é o caso comum (~95%) — não é sinal, não aparece."""
     t = _transacao_regiao(natureza="1.Compra e venda")
     corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
-    assert "Compra e venda" in corpo
-    assert "1.Compra e venda" not in corpo
+    assert "Compra e venda" not in corpo
+    assert "transacao__selo" not in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_com_ressalva_mostra_selo_que_aponta_pra_caixa(client):
+    """A caixa de ressalvas fica abaixo da dobra — um selo no topo avisa e
+    leva até ela, sem expor a palavra "qualidade"."""
+    t = _transacao_regiao(qualidade=4)
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert '<a class="transacao__selo" href="#transacao-ressalvas">Dados com ressalvas</a>' in corpo
+    assert 'id="transacao-ressalvas"' in corpo
 
 
 @pytest.mark.django_db
@@ -1013,7 +1058,7 @@ def test_comparar_confianca_baixa_em_um_lado_mostra_aviso(client):
         )
     corpo = client.get(reverse("radar:comparar"), {"a": "mooca", "b": "pinheiros"}).content.decode()
     assert 'class="aviso"' in corpo
-    assert "compare com cautela" in corpo
+    assert "Compare com cautela" in corpo
 
 
 @pytest.mark.django_db

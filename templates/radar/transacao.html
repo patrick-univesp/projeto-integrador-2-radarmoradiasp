@@ -4,18 +4,25 @@
 {% block titulo %}{{ endereco }} · Radar da Moradia SP{% endblock %}
 {% block descricao %}Transação registrada no ITBI em {{ endereco }}{% if t.data_transacao %}, {{ t.data_transacao|date:"d/m/Y" }}{% endif %}: R$ {{ valor_fmt }}.{% endblock %}
 
-{% block og_titulo %}{{ endereco }} — Radar da Moradia SP{% endblock %}
+{% block og_titulo %}{{ endereco }} · Radar da Moradia SP{% endblock %}
 {% block og_descricao %}Transação registrada no ITBI: R$ {{ valor_fmt }}, em {{ endereco }}.{% endblock %}
 
 {% block css %}
   <link rel="stylesheet" href="{% static 'css/regiao.css' %}">
   <link rel="stylesheet" href="{% static 'css/transacao.css' %}">
+  {% if t.lat and t.lon %}<link rel="stylesheet" href="{% static 'vendor/maplibre-gl.css' %}">{% endif %}
 {% endblock %}
 
 {% block conteudo %}
 <div class="container transacao">
   {% if regiao %}
-    <a class="transacao__voltar" href="{% url 'radar:regiao' regiao.slug %}">← {{ regiao.nome }}</a>
+    <a class="transacao__voltar" href="{% url 'radar:regiao' regiao.slug %}">
+      <svg class="transacao__voltar-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 6l-6 6l6 6" />
+      </svg>
+      Voltar para {{ regiao.nome }}
+    </a>
   {% endif %}
 
   <div class="transacao__cabecalho">
@@ -29,30 +36,50 @@
   </div>
 
   <p class="transacao__valor">R$&nbsp;{{ valor_fmt }}</p>
+  {% if not natureza_comum and natureza_fmt %}
+    <p class="transacao__selo">{{ natureza_fmt }}</p>
+  {% endif %}
+  {% if ressalvas_qualidade %}
+    <a class="transacao__selo" href="#transacao-ressalvas">Dados com ressalvas</a>
+  {% endif %}
 
-  <dl class="transacao__grade">
-    <div>
-      <dt>R$/m²</dt>
-      <dd>{% if rs_m2_fmt %}R$&nbsp;{{ rs_m2_fmt }}{% else %}<span aria-label="não aplicável">—</span>{% endif %}</dd>
-    </div>
-    <div><dt>área construída</dt><dd>{% if t.area_construida %}{{ t.area_construida }}&nbsp;m²{% else %}—{% endif %}</dd></div>
-    <div><dt>tipo</dt><dd>{{ t.uso_grupo|default:"—" }}</dd></div>
-    <div><dt>data</dt><dd>{{ t.data_transacao|date:"d/m/Y"|default:"—" }}</dd></div>
-    <div><dt>natureza</dt><dd>{{ natureza_fmt|default:"—" }}</dd></div>
-    {% if valor_financiado_fmt %}
-      <div><dt>valor financiado</dt><dd>R$&nbsp;{{ valor_financiado_fmt }}</dd></div>
-      <div><dt>financiamento</dt><dd>{{ tipo_financiamento_fmt|default:"—" }}</dd></div>
-    {% endif %}
-    <div><dt>cartório</dt><dd>{{ t.cartorio|default:"—" }}</dd></div>
-    <div><dt>matrícula</dt><dd>{{ t.matricula|default:"—" }}</dd></div>
-  </dl>
+  <div class="transacao__secao">
+    <p class="mono transacao__secao-rotulo">O negócio</p>
+    <dl class="transacao__grade">
+      <div>
+        <dt>R$/m²</dt>
+        <dd>{% if rs_m2_fmt %}R$&nbsp;{{ rs_m2_fmt }}{% else %}<span aria-label="não aplicável">—</span>{% endif %}</dd>
+      </div>
+      <div><dt>data</dt><dd>{{ t.data_transacao|date:"d/m/Y"|default:"—" }}</dd></div>
+      {% if valor_financiado_fmt %}
+        <div><dt>valor financiado</dt><dd>R$&nbsp;{{ valor_financiado_fmt }}</dd></div>
+        <div><dt>financiamento</dt><dd>{{ tipo_financiamento_fmt|default:"—" }}</dd></div>
+      {% endif %}
+    </dl>
+  </div>
+
+  <div class="transacao__secao">
+    <p class="mono transacao__secao-rotulo">O imóvel</p>
+    <dl class="transacao__grade">
+      <div><dt>área construída</dt><dd>{% if t.area_construida %}{{ t.area_construida }}&nbsp;m²{% else %}—{% endif %}</dd></div>
+      <div><dt>tipo</dt><dd>{{ t.uso_grupo|default:"—" }}</dd></div>
+    </dl>
+  </div>
+
+  <div class="transacao__secao">
+    <p class="mono transacao__secao-rotulo">Registro</p>
+    <dl class="transacao__grade">
+      <div><dt>cartório</dt><dd>{{ t.cartorio|default:"—" }}</dd></div>
+      <div><dt>matrícula</dt><dd>{{ t.matricula|default:"—" }}</dd></div>
+    </dl>
+  </div>
 
   {% if rs_m2_explicacao %}
     <p class="transacao__nota">{{ rs_m2_explicacao }}</p>
   {% endif %}
 
   {% if ressalvas_qualidade %}
-    <div class="aviso" role="note">
+    <div class="aviso" id="transacao-ressalvas" role="note">
       <p class="transacao__qualidade-titulo">Ressalvas sobre esta transação</p>
       <ul class="transacao__qualidade-lista">
         {% for ressalva in ressalvas_qualidade %}<li>{{ ressalva }}</li>{% endfor %}
@@ -60,9 +87,23 @@
     </div>
   {% endif %}
 
-  <div class="transacao__precisao{% if precisao_aproximada %} aviso{% endif %}" role="note">
-    <p class="transacao__precisao-rotulo">Localização: {{ precisao_rotulo }}</p>
-    <p class="transacao__precisao-descricao">{{ precisao_descricao }}</p>
+  <div class="transacao__local">
+    {% if t.lat and t.lon %}
+      <div id="mapa-transacao" class="transacao__mapa" aria-hidden="true"
+           data-lon="{{ t.lon|stringformat:'f' }}" data-lat="{{ t.lat|stringformat:'f' }}"
+           data-fuzzy="{% if geo_fuzzy %}1{% else %}0{% endif %}"></div>
+    {% endif %}
+    <div class="transacao__precisao{% if precisao_aproximada %} aviso{% endif %}" role="note">
+      <p class="transacao__precisao-rotulo">Localização: {{ precisao_rotulo }}</p>
+      <p class="transacao__precisao-descricao">{{ precisao_descricao }}</p>
+    </div>
   </div>
 </div>
+{% endblock %}
+
+{% block js %}
+  {% if t.lat and t.lon %}
+    <script src="{% static 'vendor/maplibre-gl.js' %}" defer></script>
+    <script src="{% static 'js/mapa_transacao.js' %}" defer></script>
+  {% endif %}
 {% endblock %}

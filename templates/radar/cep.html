@@ -4,7 +4,7 @@
 {% block titulo %}CEP {{ cep_fmt }} · Radar da Moradia SP{% endblock %}
 {% block descricao %}{% if transacoes %}{{ pagina.paginator.count }} transação{{ pagina.paginator.count|pluralize }} registrada{{ pagina.paginator.count|pluralize }} no ITBI para o CEP {{ cep_fmt }}.{% else %}Nenhuma transação registrada no ITBI para o CEP {{ cep_fmt }}.{% endif %}{% endblock %}
 
-{% block og_titulo %}CEP {{ cep_fmt }} — Radar da Moradia SP{% endblock %}
+{% block og_titulo %}CEP {{ cep_fmt }} · Radar da Moradia SP{% endblock %}
 {% block og_descricao %}{% if transacoes %}{{ pagina.paginator.count }} transação{{ pagina.paginator.count|pluralize }} registrada{{ pagina.paginator.count|pluralize }} no ITBI para o CEP {{ cep_fmt }}.{% else %}Nenhuma transação registrada no ITBI para o CEP {{ cep_fmt }}.{% endif %}{% endblock %}
 
 {% block css %}

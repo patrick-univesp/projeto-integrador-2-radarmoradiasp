@@ -4,7 +4,7 @@
 {% block titulo %}{% if regiao_a and regiao_b %}{{ regiao_a.nome }} vs. {{ regiao_b.nome }}{% else %}Comparar regiões{% endif %} · Radar da Moradia SP{% endblock %}
 {% block descricao %}{% if regiao_a and regiao_b %}{% if diferenca and not diferenca.igual %}{{ regiao_b.nome }} tem valor típico R$ {{ diferenca.abs_fmt }}/m² {% if diferenca.b_mais_caro %}maior{% else %}menor{% endif %} que {{ regiao_a.nome }}, a partir de dados reais do ITBI.{% else %}Compare o valor típico do metro quadrado entre {{ regiao_a.nome }} e {{ regiao_b.nome }}, a partir de dados reais do ITBI.{% endif %}{% else %}Compare o valor típico do metro quadrado entre duas regiões de São Paulo, a partir de dados reais do ITBI.{% endif %}{% endblock %}
 
-{% block og_titulo %}{% if regiao_a and regiao_b %}{{ regiao_a.nome }} vs. {{ regiao_b.nome }}{% if diferenca and not diferenca.igual %} · R$ {{ diferenca.abs_fmt }}/m² de diferença{% endif %} — Radar da Moradia SP{% else %}Comparar regiões — Radar da Moradia SP{% endif %}{% endblock %}
+{% block og_titulo %}{% if regiao_a and regiao_b %}{{ regiao_a.nome }} vs. {{ regiao_b.nome }}{% if diferenca and not diferenca.igual %} · R$ {{ diferenca.abs_fmt }}/m² de diferença{% endif %} · Radar da Moradia SP{% else %}Comparar regiões · Radar da Moradia SP{% endif %}{% endblock %}
 {% block og_descricao %}{% if regiao_a and regiao_b %}{% if diferenca %}{% if diferenca.igual %}{{ regiao_a.nome }} e {{ regiao_b.nome }} têm o mesmo valor típico de metro quadrado.{% else %}{{ regiao_b.nome }} é R$ {{ diferenca.abs_fmt }}/m² {% if diferenca.b_mais_caro %}mais caro{% else %}mais barato{% endif %} que {{ regiao_a.nome }}{% if diferenca.pct_fmt %} ({{ diferenca.pct_fmt }}%){% endif %}.{% endif %}{% if confianca_baixa %} Uma das regiões tem poucas vendas registradas: compare com cautela.{% endif %}{% else %}Ainda não há dados suficientes em uma das regiões para calcular a diferença.{% endif %}{% else %}Compare o valor típico do metro quadrado entre duas regiões de São Paulo, a partir de dados reais do ITBI.{% endif %}{% endblock %}
 
 {% block css %}
@@ -35,7 +35,7 @@
         <p class="comparar__diferenca-texto">Não há dados suficientes para calcular a diferença entre {{ regiao_a.nome }} e {{ regiao_b.nome }}.</p>
       {% endif %}
       {% if confianca_baixa and diferenca %}
-        <div class="aviso" role="note">Uma das regiões tem poucas vendas registradas — compare com cautela.</div>
+        <div class="aviso" role="note">Uma das regiões tem poucas vendas registradas. Compare com cautela.</div>
       {% endif %}
     </div>
   {% endif %}
