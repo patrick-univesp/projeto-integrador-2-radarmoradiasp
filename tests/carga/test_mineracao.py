@@ -17,6 +17,7 @@ from radar.carga.mineracao import (
     qualidade,
     rs_m2_construido,
     rs_m2_terreno,
+    situacao_sql_invalida,
     valor_inconsistente,
     valor_irrisorio,
 )
@@ -80,7 +81,21 @@ def test_qualidade_bits_novos():
     assert qualidade(False, False, irrisorio=True) == 4
     assert qualidade(False, False, financiamento_ruim=True) == 8
     assert qualidade(False, False, data_ruim=True) == 16
-    assert qualidade(True, True, irrisorio=True, financiamento_ruim=True, data_ruim=True) == 31
+    assert qualidade(False, False, sql_ruim=True) == 32
+    assert qualidade(True, True, irrisorio=True, financiamento_ruim=True, data_ruim=True,
+                     sql_ruim=True) == 63
+
+
+def test_situacao_sql_invalida():
+    assert situacao_sql_invalida("Cancelado Predial") is True
+    assert situacao_sql_invalida("Não_Existe_Exercício") is True
+    assert situacao_sql_invalida("NAO_EXISTE_EXERCICIO") is True  # caixa/acento não importam
+    assert situacao_sql_invalida("Ativo Predial") is False
+    assert situacao_sql_invalida("Ativo Territorial") is False
+    # Cancelado Territorial parece que deveria casar, mas fica de fora de propósito
+    assert situacao_sql_invalida("Cancelado Territorial") is False
+    assert situacao_sql_invalida("") is False
+    assert situacao_sql_invalida(None) is False
 
 
 def test_valor_irrisorio():

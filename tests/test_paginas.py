@@ -735,6 +735,14 @@ def test_transacao_valor_irrisorio_mostra_ressalva(client):
 
 
 @pytest.mark.django_db
+def test_transacao_sql_cancelado_mostra_ressalva(client):
+    t = _transacao_regiao(qualidade=32, situacao_sql="Cancelado Predial")
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "Ressalvas sobre esta transação" in corpo
+    assert "foi cancelado ou não existe" in corpo
+
+
+@pytest.mark.django_db
 def test_transacao_qualidade_com_dois_bits_mostra_as_duas_ressalvas(client):
     """4 (irrisório) + 8 (financiamento incompatível) = 12."""
     t = _transacao_regiao(qualidade=12)

@@ -79,6 +79,9 @@ QUALIDADE_RESSALVAS = {
        "transação — o valor declarado provavelmente não é o preço real do negócio.",
     16: "A data da transação está fora da faixa plausível — pode ser erro de "
         "digitação na planilha original.",
+    32: "O cadastro deste imóvel na Prefeitura (SQL) foi cancelado ou não existe "
+        "para o exercício atual — o tipo, a área e o uso registrados podem não "
+        "corresponder mais ao imóvel negociado.",
 }
 
 

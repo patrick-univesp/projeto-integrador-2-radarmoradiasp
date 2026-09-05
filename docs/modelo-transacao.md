@@ -28,8 +28,9 @@ porque o rótulo do imóvel não é confiável (`flag_cadastro_defasado`) ou por
 precisa deles para ser idempotente (`ano_guia`, `mes_guia`) — e o número é o produto.
 O resto entra por migration quando uma tela pedir (`ALTER TABLE ADD COLUMN` é barato em
 SQLite; remover e renomear é que dói) — foi exatamente assim que `valor_financiado`,
-`natureza`, `tipo_financiamento`, `cartorio` e `matricula` entraram depois (migrations
-`0007`/`0008`), levando o total a **28 campos** (ver a tabela completa abaixo).
+`natureza`, `tipo_financiamento`, `cartorio`, `matricula` e `situacao_sql` entraram
+depois (migrations `0007`–`0009`), levando o total a **29 campos** (ver a tabela
+completa abaixo).
 
 ---
 
@@ -87,6 +88,7 @@ flowchart LR
 | `tipo_financiamento`     | `CharField(80)`       | `blank=True`    | —                               | planilha           | idem `natureza`; vazio quando não há financiamento                                                                                                  |
 | `cartorio`               | `CharField(60)`       | `blank=True`    | —                               | planilha           | proveniência — exibido na página da transação, não usado em consulta                                                                                |
 | `matricula`               | `CharField(30)`       | `blank=True`    | —                               | planilha           | idem `cartorio`; guardado como texto (não numérico) por segurança, mesmo critério de `sql`/`cep`                                                    |
+| `situacao_sql`           | `CharField(30)`       | `blank=True`    | —                               | planilha           | cru (`"Ativo Predial"`, `"Cancelado Predial"`, …); `"Cancelado Predial"`/`"Não_Existe_Exercício"` acendem o bit 32 de `qualidade` — ver abaixo      |
 | `data_transacao`         | `DateField`           | `null=True`     | —                               | planilha           | é `datetime` de verdade no `.xlsx`                                                                                                                  |
 | `ano_transacao`          | `IntegerField`        | `null=True`     | simples + composto              | derivado           | ano de `data_transacao`; **correção, não filtro** — ver abaixo                                                                                      |
 | `area_construida`        | `DecimalField(9, 2)`  | `null=True`     | —                               | planilha (tratado) | cap oficial 951.000 m²; `0` para terreno vira `0` ou `NULL` conforme a regra da métrica                                                             |
@@ -188,16 +190,25 @@ flowchart LR
     C["irrisorio<br/>valor_transacao < R$ 1.000"] --> Q
     D["financiamento_ruim<br/>valor_financiado > valor_transacao"] --> Q
     E["data_ruim<br/>ano_transacao fora de 1990–ano da carga"] --> Q
-    Q["qualidade = 1·A + 2·B + 4·C + 8·D + 16·E"] --> R{"valor"}
+    F["sql_ruim<br/>situacao_sql = Cancelado Predial<br/>ou Não_Existe_Exercício"] --> Q
+    Q["qualidade = 1·A + 2·B + 4·C + 8·D + 16·E + 32·F"] --> R{"valor"}
     R -- 0 --> OK["entra no cálculo"]
     R -- "≠ 0" --> H["escondida por padrão"]
 ```
 
-Quase toda consulta do produto filtra `qualidade=0` — daí o índice. Os três
-últimos bits (`irrisorio`, `financiamento_ruim`, `data_ruim`) entraram depois de
-auditoria sobre a base completa: valor declarado simbólico (R$ 0,01 a R$ 1,00)
-passava como boa quando o VVR "corrigia" a base de cálculo — 441 linhas, 258 delas
-contaminando o R$/m² de verdade.
+Quase toda consulta do produto filtra `qualidade=0` — daí o índice. Os três bits
+`irrisorio`/`financiamento_ruim`/`data_ruim` entraram depois de auditoria sobre a
+base completa: valor declarado simbólico (R$ 0,01 a R$ 1,00) passava como boa
+quando o VVR "corrigia" a base de cálculo — 441 linhas, 258 delas contaminando o
+R$/m² de verdade. O bit `sql_ruim` (32) entrou na sequência: **3.872 linhas**
+(2,9% da base) têm o cadastro do SQL cancelado ou sem lançamento no exercício —
+99% delas passavam como `qualidade=0`, apoiadas num cadastro que a própria
+Prefeitura já não reconhece. Não move a mediana (é robusta; ~0,2% do conjunto),
+mas tira da lista e do detalhe da transação vendas cujo cadastro de imóvel não
+vale mais, e limpa a cauda de R$/m² absurdo da distribuição. `"Cancelado
+Territorial"` fica de fora: quase sempre é lote-mãe subdividido pra empreendimento
+novo — venda legítima de lançamento — e já não entra na mediana pelo filtro
+residencial.
 
 ### 4. `bairro` pode ser vazio; `cep` e `sql` não
 
@@ -267,6 +278,7 @@ classDiagram
         CharField tipo_financiamento
         CharField cartorio
         CharField matricula
+        CharField situacao_sql
         DateField data_transacao
         IntegerField ano_transacao
         DecimalField area_construida

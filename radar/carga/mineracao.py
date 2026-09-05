@@ -143,6 +143,18 @@ def linha_deslocada(situacao_sql_bruto, tipo_financiamento_bruto) -> bool:
     )
 
 
+# Status de "Situação do SQL" (normalizados por _sem_acento) em que a Prefeitura
+# não reconhece mais o cadastro — uso/área/padrão da linha não valem. "Cancelado
+# Territorial" fica de fora: quase sempre é lote-mãe subdividido pra empreendimento
+# novo (venda legítima de lançamento), e terreno já não entra na mediana.
+_SITUACAO_SQL_INVALIDA = frozenset(("CANCELADO PREDIAL", "NAO_EXISTE_EXERCICIO"))
+
+
+def situacao_sql_invalida(situacao_sql) -> bool:
+    """``True`` para "Cancelado Predial" e "Não_Existe_Exercício" — ver ``_SITUACAO_SQL_INVALIDA``."""
+    return _sem_acento(str(situacao_sql or "")).strip() in _SITUACAO_SQL_INVALIDA
+
+
 def valor_inconsistente(base_calculo, valor_transacao, vvr_proporcional) -> bool:
     """A planilha define ``base = max(declarado, VVR proporcional)``. Em algumas
     linhas isso não fecha — quase todas com base zerada apesar de valor
@@ -180,9 +192,10 @@ def data_implausivel(data_transacao) -> bool:
 
 
 def qualidade(deslocada, inconsistente, irrisorio=False, financiamento_ruim=False,
-              data_ruim=False) -> int:
+              data_ruim=False, sql_ruim=False) -> int:
     """Bitmask: 1 colunas deslocadas · 2 valores que não fecham · 4 valor
-    irrisório · 8 financiamento maior que o declarado · 16 data implausível.
+    irrisório · 8 financiamento maior que o declarado · 16 data implausível ·
+    32 registro cadastral do SQL cancelado/inexistente.
     0 é bom; ``!= 0`` sai do cálculo por padrão."""
     return (
         int(bool(deslocada))
@@ -190,6 +203,7 @@ def qualidade(deslocada, inconsistente, irrisorio=False, financiamento_ruim=Fals
         + 4 * int(bool(irrisorio))
         + 8 * int(bool(financiamento_ruim))
         + 16 * int(bool(data_ruim))
+        + 32 * int(bool(sql_ruim))
     )
 
 

@@ -52,6 +52,7 @@ def _linha_para_transacao(bruta, indices, ano_guia, mes_guia):
     tipofin = coercao.para_texto(bruta[C_TIPOFIN])
     cartorio = coercao.para_texto(bruta[C_CARTORIO])
     matricula = coercao.para_texto(bruta[C_MATRIC])
+    situacao_sql = coercao.para_texto(bruta[C_SITSQL])
     logr = coercao.para_texto(bruta[C_LOGR])
     bairro = coercao.para_texto(bruta[C_BAIRRO])
 
@@ -63,6 +64,7 @@ def _linha_para_transacao(bruta, indices, ano_guia, mes_guia):
     irrisorio = mineracao.valor_irrisorio(valor)
     financiamento_ruim = mineracao.financiamento_incompativel(valor, valfin)
     data_ruim = mineracao.data_implausivel(data)
+    sql_ruim = mineracao.situacao_sql_invalida(situacao_sql)
 
     return Transacao(
         sql=sql,
@@ -84,12 +86,14 @@ def _linha_para_transacao(bruta, indices, ano_guia, mes_guia):
         tipo_financiamento=tipofin[:80],
         cartorio=cartorio[:60],
         matricula=matricula[:30],
+        situacao_sql=situacao_sql[:30],
         data_transacao=data,
         ano_transacao=mineracao.ano_transacao(data),
         area_construida=_dec(area, obrigatorio=False),
         uso_grupo=mineracao.grupo_de_uso(uso_cod)[:40],
         rs_m2_construido=_dec(mineracao.rs_m2_construido(base, area, prop), obrigatorio=False),
-        qualidade=mineracao.qualidade(deslocada, inconsistente, irrisorio, financiamento_ruim, data_ruim),
+        qualidade=mineracao.qualidade(deslocada, inconsistente, irrisorio, financiamento_ruim,
+                                      data_ruim, sql_ruim),
         flag_cadastro_defasado=mineracao.cadastro_defasado(natureza, tipofin, prop, uso_cod),
         ano_guia=ano_guia,
         mes_guia=mes_guia,

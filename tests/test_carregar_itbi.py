@@ -254,6 +254,18 @@ LINHAS_QUALIDADE = [
      500000, D(2099, 1, 15), 500000, 100, 500000, 500000, None, 0, "1º CRI", 3000,
      "Ativo Predial", 300, 10.0, 1.0, 150, 20, "APARTAMENTO EM CONDOMINIO", 23,
      "RESIDENCIAL VERTICAL", 2010],
+    # D: SQL cancelado — números do ITBI batem (qualidade seria 0), mas a
+    # Prefeitura não reconhece mais o cadastro daquele imóvel.
+    [44444444444, "R TESTE D", 400, None, "CENTRO", None, 1000000, "1.Compra e venda",
+     500000, D(2026, 3, 18), 500000, 100, 500000, 500000, None, 0, "1º CRI", 4000,
+     "Cancelado Predial", 300, 10.0, 1.0, 120, 20, "APARTAMENTO EM CONDOMINIO", 23,
+     "RESIDENCIAL VERTICAL", 2010],
+    # E: Cancelado Territorial — lote-mãe subdividido pra empreendimento novo;
+    # deliberadamente NÃO marca qualidade.
+    [55555555555, "R TESTE E", 500, None, "CENTRO", None, 1000000, "1.Compra e venda",
+     500000, D(2026, 3, 20), 500000, 100, 500000, 500000, None, 0, "1º CRI", 5000,
+     "Cancelado Territorial", 300, 10.0, 1.0, 120, 20, "APARTAMENTO EM CONDOMINIO", 23,
+     "RESIDENCIAL VERTICAL", 2010],
 ]
 
 
@@ -289,3 +301,19 @@ def test_data_implausivel_marca_qualidade(tmp_path):
     carregar(str(_planilha_qualidade(tmp_path)), base_dir_geo=str(GEO), blocos=3)
     t = Transacao.objects.get(sql="33333333333")
     assert t.qualidade == 16
+
+
+@pytest.mark.django_db
+def test_sql_cancelado_marca_qualidade_e_guarda_situacao(tmp_path):
+    carregar(str(_planilha_qualidade(tmp_path)), base_dir_geo=str(GEO), blocos=3)
+    t = Transacao.objects.get(sql="44444444444")
+    assert t.situacao_sql == "Cancelado Predial"
+    assert t.qualidade == 32
+
+
+@pytest.mark.django_db
+def test_cancelado_territorial_guarda_situacao_mas_nao_marca_qualidade(tmp_path):
+    carregar(str(_planilha_qualidade(tmp_path)), base_dir_geo=str(GEO), blocos=3)
+    t = Transacao.objects.get(sql="55555555555")
+    assert t.situacao_sql == "Cancelado Territorial"
+    assert t.qualidade == 0

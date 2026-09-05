@@ -76,6 +76,9 @@ class Transacao(models.Model):
     tipo_financiamento = models.CharField(max_length=80, blank=True)
     cartorio = models.CharField(max_length=60, blank=True)
     matricula = models.CharField(max_length=30, blank=True)
+    # Cru da planilha ("Ativo Predial", "Cancelado Predial", …); dois dos status
+    # acendem o bit 32 de qualidade — ver mineracao.py::situacao_sql_invalida.
+    situacao_sql = models.CharField(max_length=30, blank=True)
     data_transacao = models.DateField(null=True)
     ano_transacao = models.IntegerField(null=True, db_index=True)
 
