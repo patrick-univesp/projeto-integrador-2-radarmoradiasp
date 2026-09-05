@@ -651,6 +651,97 @@ def test_transacao_linka_de_volta_para_a_regiao(client):
     t = _transacao_regiao()
     corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
     assert 'href="/regiao/mooca/"' in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_mostra_valor_financiado_quando_presente(client):
+    t = _transacao_regiao(valor_financiado=Decimal("400000"))
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "valor financiado" in corpo
+    assert "400.000" in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_mostra_natureza_sem_prefixo_numerico(client):
+    t = _transacao_regiao(natureza="1.Compra e venda")
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "Compra e venda" in corpo
+    assert "1.Compra e venda" not in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_mostra_tipo_financiamento_quando_ha_financiamento(client):
+    t = _transacao_regiao(
+        valor_financiado=Decimal("400000"), tipo_financiamento="2.Minha Casa Minha Vida",
+    )
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "Minha Casa Minha Vida" in corpo
+    assert "2.Minha Casa Minha Vida" not in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_sem_financiamento_nao_mostra_tipo_financiamento(client):
+    t = _transacao_regiao(valor_financiado=None, tipo_financiamento="")
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "<dt>financiamento</dt>" not in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_mostra_cartorio_e_matricula(client):
+    t = _transacao_regiao(cartorio="1º Cartório de Registro de Imóvel", matricula="122380")
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "1º Cartório de Registro de Imóvel" in corpo
+    assert "122380" in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_cartorio_e_matricula_vazios_mostram_traco(client):
+    t = _transacao_regiao(cartorio="", matricula="")
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "<dt>cartório</dt><dd>—</dd>" in corpo
+    assert "<dt>matrícula</dt><dd>—</dd>" in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_sem_valor_financiado_nao_mostra_o_campo(client):
+    t = _transacao_regiao(valor_financiado=None)
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "valor financiado" not in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_valor_financiado_zero_nao_mostra_o_campo(client):
+    """Achado real: a planilha grava 0 (não vazio) quando não há financiamento
+    — `0` formatado ainda é uma string não-vazia ("0"), então o template não
+    pode confiar em `{% if valor_financiado_fmt %}` sem essa checagem na view."""
+    t = _transacao_regiao(valor_financiado=Decimal("0"))
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "valor financiado" not in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_qualidade_boa_nao_mostra_ressalvas(client):
+    t = _transacao_regiao(qualidade=0)
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "Ressalvas sobre esta transação" not in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_valor_irrisorio_mostra_ressalva(client):
+    t = _transacao_regiao(qualidade=4)
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "Ressalvas sobre esta transação" in corpo
+    assert "valor declarado é simbólico" in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_qualidade_com_dois_bits_mostra_as_duas_ressalvas(client):
+    """4 (irrisório) + 8 (financiamento incompatível) = 12."""
+    t = _transacao_regiao(qualidade=12)
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "valor declarado é simbólico" in corpo
+    assert "financiado pelo banco é maior" in corpo
+    assert corpo.count("<li>") == 2
     assert "Mooca" in corpo
 
 

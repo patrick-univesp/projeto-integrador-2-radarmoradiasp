@@ -16,6 +16,19 @@ FRACAO_MIN_TERRENO = 0.99
 PROPORCAO_MIN_AGIO = 5.0
 PROPORCAO_PEQUENA = 5.0
 
+# Abaixo disso o valor declarado é taxa/parcela/emolumento, não o preço do
+# negócio — auditoria da base real encontrou linhas de R$ 0,01 a R$ 1,00 que
+# passavam como qualidade=0 porque o Valor Venal de Referência "fechava" a
+# base de cálculo mesmo com o declarado simbólico.
+VALOR_TRANSACAO_MINIMO = 1000
+
+# Faixa de anos plausível para a data do negócio. A base real observada vai de
+# 1994 a 2026 sem problema (contrato de gaveta regularizado tardiamente é
+# legítimo) — o teto/piso aqui é só para pegar erro de digitação óbvio
+# (ex.: "2099"), não para reclassificar dado real já visto.
+ANO_TRANSACAO_MINIMO = 1990
+ANO_TRANSACAO_MAXIMO = ANO_BASE
+
 _GRUPOS_USO = {
     "Terreno": (0,),
     "Casa / residência horizontal": (10, 12, 13, 14),
@@ -139,10 +152,45 @@ def valor_inconsistente(base_calculo, valor_transacao, vvr_proporcional) -> bool
     return abs(atual - esperada) > 1
 
 
-def qualidade(deslocada, inconsistente) -> int:
-    """0 ok · 1 colunas deslocadas · 2 valores que não fecham · 3 os dois.
-    ``≠ 0`` sai do cálculo por padrão."""
-    return int(bool(deslocada)) + 2 * int(bool(inconsistente))
+def valor_irrisorio(valor_transacao) -> bool:
+    """``True`` quando o valor declarado é simbólico (taxa/parcela/emolumento
+    digitado no campo do imóvel) — mesmo que o Valor Venal de Referência tenha
+    "corrigido" a base de cálculo depois, o valor de origem já denuncia a
+    linha. Achado real: R$ 0,01 e R$ 1,00 passando como boas."""
+    return valor_transacao is not None and valor_transacao < VALOR_TRANSACAO_MINIMO
+
+
+def financiamento_incompativel(valor_transacao, valor_financiado) -> bool:
+    """``True`` quando o banco financiou mais do que o comprador declarou ter
+    pago — o declarado não é o preço do negócio (mesmo sintoma do
+    ``valor_irrisorio``, capturável mesmo sem VVR baixo o bastante pra marcar
+    ``inconsistente``)."""
+    if not valor_transacao or not valor_financiado:
+        return False
+    return valor_financiado > valor_transacao
+
+
+def data_implausivel(data_transacao) -> bool:
+    """``True`` só para erro de digitação óbvio (ano fora de 1990–ano da
+    carga) — não para contrato antigo regularizado tardiamente, que é
+    legítimo e já visto na base real (mais antigo: 1994)."""
+    if data_transacao is None:
+        return False
+    return not (ANO_TRANSACAO_MINIMO <= data_transacao.year <= ANO_TRANSACAO_MAXIMO)
+
+
+def qualidade(deslocada, inconsistente, irrisorio=False, financiamento_ruim=False,
+              data_ruim=False) -> int:
+    """Bitmask: 1 colunas deslocadas · 2 valores que não fecham · 4 valor
+    irrisório · 8 financiamento maior que o declarado · 16 data implausível.
+    0 é bom; ``!= 0`` sai do cálculo por padrão."""
+    return (
+        int(bool(deslocada))
+        + 2 * int(bool(inconsistente))
+        + 4 * int(bool(irrisorio))
+        + 8 * int(bool(financiamento_ruim))
+        + 16 * int(bool(data_ruim))
+    )
 
 
 def cadastro_defasado(natureza, tipo_financiamento, proporcao, uso_cod) -> bool:

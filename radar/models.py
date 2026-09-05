@@ -66,6 +66,16 @@ class Transacao(models.Model):
 
     valor_transacao = models.DecimalField(max_digits=15, decimal_places=2)
     base_calculo = models.DecimalField(max_digits=15, decimal_places=2)
+    # Só usado para marcar qualidade (financiamento maior que o valor declarado
+    # denuncia que o declarado não é o preço real do negócio) — não entra em
+    # nenhuma conta de R$/m² ou mediana.
+    valor_financiado = models.DecimalField(max_digits=15, decimal_places=2, null=True)
+    # Cru da planilha ("1.Compra e venda") — o prefixo numérico some só na
+    # exibição (radar/views.py), nunca no banco.
+    natureza = models.CharField(max_length=120, blank=True)
+    tipo_financiamento = models.CharField(max_length=80, blank=True)
+    cartorio = models.CharField(max_length=60, blank=True)
+    matricula = models.CharField(max_length=30, blank=True)
     data_transacao = models.DateField(null=True)
     ano_transacao = models.IntegerField(null=True, db_index=True)
 
@@ -74,6 +84,8 @@ class Transacao(models.Model):
 
     rs_m2_construido = models.DecimalField(max_digits=12, decimal_places=2, null=True)
 
+    # Bitmask, ver radar/carga/mineracao.py::qualidade — 0 é bom, != 0 sai do
+    # cálculo por padrão (estatisticas.py::transacoes_da_regiao).
     qualidade = models.SmallIntegerField(default=0, db_index=True)
     flag_cadastro_defasado = models.BooleanField(default=False)
 

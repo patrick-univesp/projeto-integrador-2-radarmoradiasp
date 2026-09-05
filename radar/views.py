@@ -65,6 +65,26 @@ PRECISAO_GEO_PADRAO = (
     "Esta transação não tem coordenada — não é possível mostrá-la no mapa.",
 )
 
+# Tradução de qualidade (bitmask, radar/carga/mineracao.py::qualidade) pra
+# linguagem comum — mesmo raciocínio do PRECISAO_GEO: nenhum código técnico
+# chega ao template. Uma transação pode acumular mais de uma ressalva.
+QUALIDADE_RESSALVAS = {
+    1: "As colunas desta linha vieram deslocadas na planilha original — algum "
+       "campo pode estar com o valor errado.",
+    2: "A base de cálculo do imposto não bate com o valor declarado nem com o "
+       "valor de referência da Prefeitura.",
+    4: "O valor declarado é simbólico (abaixo de R$ 1.000) — não representa o "
+       "preço real do imóvel.",
+    8: "O valor financiado pelo banco é maior que o valor declarado da "
+       "transação — o valor declarado provavelmente não é o preço real do negócio.",
+    16: "A data da transação está fora da faixa plausível — pode ser erro de "
+        "digitação na planilha original.",
+}
+
+
+def _ressalvas_qualidade(qualidade):
+    return [msg for bit, msg in QUALIDADE_RESSALVAS.items() if qualidade & bit]
+
 # Geometria do SVG da série mensal (#14) — viewBox, não pixel real; o CSS
 # escala. Largura da faixa de plotagem = LARGURA_SERIE - 2*MARGEM_ESQ_SERIE.
 LARGURA_SERIE = 320
@@ -155,6 +175,13 @@ def _endereco(t):
     # numero="" é "sem numeração" de verdade (coercao.para_numero_porta zera os
     # códigos 0/99999 do cadastro, comum em Terreno) — "s/n", não vírgula solta.
     return f"{t.logradouro}, {t.numero}" if t.numero else f"{t.logradouro}, s/n"
+
+
+def _sem_prefixo_numerico(texto):
+    """``"33.Demais atos onerosos translativos"`` → ``"Demais atos onerosos
+    translativos"`` — o código da planilha nunca chega ao template."""
+    m = re.match(r"^\s*\d+\s*\.\s*(.+)$", texto or "")
+    return m.group(1) if m else texto
 
 
 def _grafico_serie(serie):
@@ -471,8 +498,14 @@ def transacao(request, id):
             "endereco": _endereco(t),
             "ilustracao_uso": f"img/uso/{slug_uso}-96.webp" if slug_uso else None,
             "valor_fmt": _formatar_rs(t.valor_transacao),
+            # `0` na planilha é "sem financiamento", não "financiado R$ 0" —
+            # mesmo tratamento que financiamento_incompativel já dá na carga.
+            "valor_financiado_fmt": _formatar_rs(t.valor_financiado) if t.valor_financiado else None,
+            "natureza_fmt": _sem_prefixo_numerico(t.natureza),
+            "tipo_financiamento_fmt": _sem_prefixo_numerico(t.tipo_financiamento),
             "rs_m2_fmt": rs_m2_fmt,
             "rs_m2_explicacao": rs_m2_explicacao,
+            "ressalvas_qualidade": _ressalvas_qualidade(t.qualidade),
             "precisao_rotulo": precisao_rotulo,
             "precisao_descricao": precisao_descricao,
             "precisao_aproximada": t.geo_nivel == GEO_NIVEL_APROXIMADO,

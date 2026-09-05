@@ -44,7 +44,13 @@ def test_toda_grafia_da_tabela_resolve(colado):
 
 
 @pytest.mark.parametrize(
-    "lixo", ["TORRE 1", "Torre A", "2 SUBSOLO", "SS3", "BLOCO 2", "E 1 DP", "COBERTURA"]
+    "lixo", [
+        "TORRE 1", "Torre A", "2 SUBSOLO", "SS3", "BLOCO 2", "E 1 DP", "COBERTURA",
+        # achados na auditoria da base completa (135.655 linhas)
+        "ED. ALFREDO VOLPI", "EDIFICIO", "ED", "ED CONNECT BIANOR",
+        "DE FARIA, 157 E 227", "E 3 VAGAS", "E 1 VAGA NA GARAGEM",
+        "DEP N 01 ED MASAO",
+    ]
 )
 def test_lixo_de_bairro_detectado(lixo):
     assert eh_lixo_de_bairro(normalizar(lixo)) is True

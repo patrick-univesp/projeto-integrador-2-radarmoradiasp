@@ -38,10 +38,26 @@
     <div><dt>área construída</dt><dd>{% if t.area_construida %}{{ t.area_construida }}&nbsp;m²{% else %}—{% endif %}</dd></div>
     <div><dt>tipo</dt><dd>{{ t.uso_grupo|default:"—" }}</dd></div>
     <div><dt>data</dt><dd>{{ t.data_transacao|date:"d/m/Y"|default:"—" }}</dd></div>
+    <div><dt>natureza</dt><dd>{{ natureza_fmt|default:"—" }}</dd></div>
+    {% if valor_financiado_fmt %}
+      <div><dt>valor financiado</dt><dd>R$&nbsp;{{ valor_financiado_fmt }}</dd></div>
+      <div><dt>financiamento</dt><dd>{{ tipo_financiamento_fmt|default:"—" }}</dd></div>
+    {% endif %}
+    <div><dt>cartório</dt><dd>{{ t.cartorio|default:"—" }}</dd></div>
+    <div><dt>matrícula</dt><dd>{{ t.matricula|default:"—" }}</dd></div>
   </dl>
 
   {% if rs_m2_explicacao %}
     <p class="transacao__nota">{{ rs_m2_explicacao }}</p>
+  {% endif %}
+
+  {% if ressalvas_qualidade %}
+    <div class="aviso" role="note">
+      <p class="transacao__qualidade-titulo">Ressalvas sobre esta transação</p>
+      <ul class="transacao__qualidade-lista">
+        {% for ressalva in ressalvas_qualidade %}<li>{{ ressalva }}</li>{% endfor %}
+      </ul>
+    </div>
   {% endif %}
 
   <div class="transacao__precisao{% if precisao_aproximada %} aviso{% endif %}" role="note">

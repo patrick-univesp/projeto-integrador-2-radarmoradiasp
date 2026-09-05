@@ -5,7 +5,7 @@
 Documentação do esquema criado em `radar/models.py` — o modelo que sustenta todo o
 resto do produto.
 
-> **Escopo desta doc:** o modelo `Transacao` (migrations `0001`–`0006`). As regras
+> **Escopo desta doc:** o modelo `Transacao` (migrations `0001`–`0008`). As regras
 > que preenchem os campos derivados estão em
 > [`carga-mineracao.md`](carga-mineracao.md); a geocodificação (`lat`, `lon`,
 > `geo_nivel`, `distrito`), em [`referencia-geo.md`](referencia-geo.md); o registro
@@ -21,13 +21,15 @@ justo?"_. A resposta é a **mediana de R$/m² da região**, calculada sobre as
 transações reais de ITBI. `Transacao` é uma linha dessas — um negócio registrado numa
 guia de ITBI paga.
 
-O modelo nasce **enxuto**: 22 campos, não as ~55 do dataset enriquecido do projeto de
-referência. Entram agora só os campos que uma tela planejada consome, mais os que
-existem porque **sem eles o número exibido está errado** (`ano_transacao`,
-`qualidade`), porque o rótulo do imóvel não é confiável (`flag_cadastro_defasado`) ou
-porque a carga precisa deles para ser idempotente (`ano_guia`, `mes_guia`) — e o
-número é o produto. O resto entra por migration quando uma tela pedir
-(`ALTER TABLE ADD COLUMN` é barato em SQLite; remover e renomear é que dói).
+O modelo **nasceu enxuto**: 22 campos, não as ~55 do dataset enriquecido do projeto de
+referência. Entram só os campos que uma tela planejada consome, mais os que existem
+porque **sem eles o número exibido está errado** (`ano_transacao`, `qualidade`),
+porque o rótulo do imóvel não é confiável (`flag_cadastro_defasado`) ou porque a carga
+precisa deles para ser idempotente (`ano_guia`, `mes_guia`) — e o número é o produto.
+O resto entra por migration quando uma tela pedir (`ALTER TABLE ADD COLUMN` é barato em
+SQLite; remover e renomear é que dói) — foi exatamente assim que `valor_financiado`,
+`natureza`, `tipo_financiamento`, `cartorio` e `matricula` entraram depois (migrations
+`0007`/`0008`), levando o total a **28 campos** (ver a tabela completa abaixo).
 
 ---
 
@@ -40,7 +42,7 @@ flowchart LR
     subgraph P["📄 Planilha crua (.xlsx)"]
         direction TB
         P1["sql · logradouro · numero<br/>complemento · bairro · cep"]
-        P2["valor_transacao · base_calculo<br/>data_transacao"]
+        P2["valor_transacao · base_calculo · valor_financiado<br/>natureza · tipo_financiamento · cartorio · matricula<br/>data_transacao"]
     end
     subgraph G["🗺️ Referência geo versionada"]
         direction TB
@@ -80,6 +82,11 @@ flowchart LR
 | `geo_nivel`              | `CharField(2)`        | `blank=True`    | —                               | geo                | `T1` (lote exato) → `T4` (centroide da quadra, ~100 m), ou `--` sem coordenada                                                                      |
 | `valor_transacao`        | `DecimalField(15, 2)` | obrigatório     | —                               | planilha           | valor declarado pelo contribuinte                                                                                                                   |
 | `base_calculo`           | `DecimalField(15, 2)` | obrigatório     | —                               | planilha           | base do ITBI = `max(declarado, VVR proporcional)`; ~1% vem `0` na origem                                                                            |
+| `valor_financiado`       | `DecimalField(15, 2)` | `null=True`     | —                               | planilha           | só usado para marcar `qualidade` (financiamento maior que o declarado); nunca entra em conta de R$/m² ou mediana                                    |
+| `natureza`               | `CharField(120)`      | `blank=True`    | —                               | planilha           | cru (`"1.Compra e venda"`); exibição (`radar/views.py::_sem_prefixo_numerico`) tira o prefixo numérico, nunca o banco                               |
+| `tipo_financiamento`     | `CharField(80)`       | `blank=True`    | —                               | planilha           | idem `natureza`; vazio quando não há financiamento                                                                                                  |
+| `cartorio`               | `CharField(60)`       | `blank=True`    | —                               | planilha           | proveniência — exibido na página da transação, não usado em consulta                                                                                |
+| `matricula`               | `CharField(30)`       | `blank=True`    | —                               | planilha           | idem `cartorio`; guardado como texto (não numérico) por segurança, mesmo critério de `sql`/`cep`                                                    |
 | `data_transacao`         | `DateField`           | `null=True`     | —                               | planilha           | é `datetime` de verdade no `.xlsx`                                                                                                                  |
 | `ano_transacao`          | `IntegerField`        | `null=True`     | simples + composto              | derivado           | ano de `data_transacao`; **correção, não filtro** — ver abaixo                                                                                      |
 | `area_construida`        | `DecimalField(9, 2)`  | `null=True`     | —                               | planilha (tratado) | cap oficial 951.000 m²; `0` para terreno vira `0` ou `NULL` conforme a regra da métrica                                                             |
@@ -95,7 +102,7 @@ flowchart LR
 ## Índices
 
 São eles que substituem o PostgreSQL: não há `pg_trgm` nem `unaccent`, e a consulta
-espacial é _bounding box_, não geometria. Doze ao todo (`0001`, `0002`, `0005`).
+espacial é _bounding box_, não geometria. Onze ao todo (`0001`, `0002`, `0005`).
 
 | Índice                     | Colunas                        | Consulta que serve                                               |
 | -------------------------- | ------------------------------ | ---------------------------------------------------------------- |
@@ -111,7 +118,7 @@ espacial é _bounding box_, não geometria. Doze ao todo (`0001`, `0002`, `0005`
 | `radar_trans_guia`         | `(ano_guia, mes_guia)`         | `--substituir-mes` da carga (`0002`)                             |
 | `radar_trans_bairro_ano`   | `(bairro_norm, ano_transacao)` | idem, pela outra chave de busca                                  |
 
-Os seis simples nascem de `db_index=True` no campo; os quatro compostos, de
+Os sete simples nascem de `db_index=True` no campo; os quatro compostos, de
 `Meta.indexes` com nome explícito.
 
 ---
@@ -123,10 +130,10 @@ sem `pandas` e sem `shapely` (ver [`carga-itbi.md`](carga-itbi.md)).
 
 ```mermaid
 flowchart TD
-    A["Linha de uma aba mensal do .xlsx<br/>28 colunas, lidas por posição"] --> B["Coerção de tipos<br/>para_sql · para_cep · para_numero · para_data"]
+    A["Linha de uma aba mensal do .xlsx<br/>28 colunas, lidas por posição"] --> B["Coerção de tipos<br/>para_sql · para_numero_porta · para_numero<br/>para_data · para_cep · para_texto"]
     B --> C{"sql é 11 dígitos válidos?"}
     C -- não --> X["descarta<br/>(conta no resumo)"]
-    C -- sim --> D["Mineração<br/>ano_transacao · uso_grupo<br/>rs_m2_construido · qualidade"]
+    C -- sim --> D["Mineração<br/>ano_transacao · uso_grupo · rs_m2_construido<br/>qualidade (5 sinais) · flag_cadastro_defasado"]
     D --> E["Lookup na referência geo<br/>radar/dados_geo/ → lat, lon, geo_nivel, distrito"]
     E --> F["normalizar(bairro) → bairro_norm"]
     F --> G["acumula em lista"]
@@ -176,14 +183,21 @@ junto com `distrito_slug` e `bairro_norm`.
 
 ```mermaid
 flowchart LR
-    A["flag_suspeito<br/>(colunas deslocadas na planilha:<br/>datetime onde devia haver texto)"] --> Q
-    B["flag_valor_inconsistente<br/>base_calculo ≠ max(declarado, VVR prop.)"] --> Q
-    Q["qualidade = 1·suspeito + 2·inconsistente"] --> R{"valor"}
+    A["deslocada<br/>(colunas deslocadas na planilha:<br/>datetime onde devia haver texto)"] --> Q
+    B["inconsistente<br/>base_calculo ≠ max(declarado, VVR prop.)"] --> Q
+    C["irrisorio<br/>valor_transacao < R$ 1.000"] --> Q
+    D["financiamento_ruim<br/>valor_financiado > valor_transacao"] --> Q
+    E["data_ruim<br/>ano_transacao fora de 1990–ano da carga"] --> Q
+    Q["qualidade = 1·A + 2·B + 4·C + 8·D + 16·E"] --> R{"valor"}
     R -- 0 --> OK["entra no cálculo"]
-    R -- "1 · 2 · 3" --> H["escondida por padrão<br/>(~856 linhas na base atual)"]
+    R -- "≠ 0" --> H["escondida por padrão"]
 ```
 
-Quase toda consulta do produto filtra `qualidade=0` — daí o índice.
+Quase toda consulta do produto filtra `qualidade=0` — daí o índice. Os três
+últimos bits (`irrisorio`, `financiamento_ruim`, `data_ruim`) entraram depois de
+auditoria sobre a base completa: valor declarado simbólico (R$ 0,01 a R$ 1,00)
+passava como boa quando o VVR "corrigia" a base de cálculo — 441 linhas, 258 delas
+contaminando o R$/m² de verdade.
 
 ### 4. `bairro` pode ser vazio; `cep` e `sql` não
 
@@ -248,6 +262,11 @@ classDiagram
         CharField geo_nivel
         DecimalField valor_transacao
         DecimalField base_calculo
+        DecimalField valor_financiado
+        CharField natureza
+        CharField tipo_financiamento
+        CharField cartorio
+        CharField matricula
         DateField data_transacao
         IntegerField ano_transacao
         DecimalField area_construida
@@ -262,8 +281,8 @@ classDiagram
     note for Transacao "verbose_name transação / transações. Índices compostos: (lat, lon), (distrito_slug, ano_transacao), (bairro_norm, ano_transacao), (ano_guia, mes_guia)."
 ```
 
-Anulável (`null=True`): `lat`, `lon`, `data_transacao`, `ano_transacao`,
-`area_construida`, `rs_m2_construido`, `ano_guia`, `mes_guia`.
+Anulável (`null=True`): `lat`, `lon`, `valor_financiado`, `data_transacao`,
+`ano_transacao`, `area_construida`, `rs_m2_construido`, `ano_guia`, `mes_guia`.
 Pode ser vazio (`blank=True`): `complemento`, `bairro`, `bairro_norm`, `cep`,
 `distrito`, `distrito_slug`, `geo_nivel`, `uso_grupo`.
 Indexado: `bairro_norm`, `cep`, `distrito`, `distrito_slug`, `ano_transacao`,
@@ -274,17 +293,18 @@ sem índice até uma tela agregá-lo.
 
 ## Fora de escopo agora (entram por migration quando uma tela pedir)
 
-`referencia`, `setor`, `quadra`, `lote`, `matricula`, `cartorio`, `situacao_sql`,
-`natureza`, `natureza_cod`, `vvr`, `proporcao`, `vvr_proporcional`,
-`tributado_por_vvr`, `itbi_estimado`, `tipo_financiamento`, `valor_financiado`,
+`referencia`, `setor`, `quadra`, `lote`, `situacao_sql`, `natureza_cod`, `vvr`,
+`proporcao`, `vvr_proporcional`, `tributado_por_vvr`, `itbi_estimado`,
 `pct_financiado`, `area_terreno`, `testada`, `fracao_ideal`, `uso_cod`, `uso_desc`,
 `padrao_cod`, `padrao_desc`, `padrao_nivel`, `acc`, `idade`, `rs_m2_terreno`, `agio`,
 `mes_transacao`, `defasagem_dias`, `subprefeitura`, `regiao`,
 `flag_suspeito`, `flag_transacao_antiga`, `flag_valor_inconsistente`.
 
-> `proporcao`, `tipo_financiamento`, `natureza` e `uso_cod` **não** viram campo agora,
-> mas a carga lê os quatro para derivar `flag_cadastro_defasado` e as métricas. O que
-> não entra é o armazenamento, não a leitura.
+> `matricula`, `cartorio`, `natureza` e `tipo_financiamento` **saíram** desta lista em
+> 06/09/2026 — passaram a ser armazenados (migrations `0007`/`0008`), exibidos na
+> página de transação. `proporcao` e `uso_cod` **não** viram campo — a carga lê os
+> dois só para derivar `flag_cadastro_defasado` e as métricas; o que não entra é o
+> armazenamento, não a leitura.
 
 ## Como evoluir o esquema
 

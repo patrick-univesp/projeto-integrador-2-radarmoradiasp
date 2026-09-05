@@ -9,6 +9,8 @@ from radar.carga.mineracao import (
     ano_transacao,
     cadastro_defasado,
     cod_natureza,
+    data_implausivel,
+    financiamento_incompativel,
     grupo_de_uso,
     idade,
     linha_deslocada,
@@ -16,6 +18,7 @@ from radar.carga.mineracao import (
     rs_m2_construido,
     rs_m2_terreno,
     valor_inconsistente,
+    valor_irrisorio,
 )
 
 
@@ -71,6 +74,40 @@ def test_qualidade():
     assert qualidade(True, False) == 1
     assert qualidade(False, True) == 2
     assert qualidade(True, True) == 3
+
+
+def test_qualidade_bits_novos():
+    assert qualidade(False, False, irrisorio=True) == 4
+    assert qualidade(False, False, financiamento_ruim=True) == 8
+    assert qualidade(False, False, data_ruim=True) == 16
+    assert qualidade(True, True, irrisorio=True, financiamento_ruim=True, data_ruim=True) == 31
+
+
+def test_valor_irrisorio():
+    """Achado real: R$ 0,01 e R$ 1,00 passavam como qualidade=0 porque o VVR
+    "corrigia" a base de cálculo — o valor de origem já denuncia a linha."""
+    assert valor_irrisorio(0.01) is True
+    assert valor_irrisorio(999.99) is True
+    assert valor_irrisorio(1000) is False
+    assert valor_irrisorio(500_000) is False
+    assert valor_irrisorio(None) is False
+
+
+def test_financiamento_incompativel():
+    """Caso real da auditoria: R$ 711,78 declarado, R$ 320.000 financiado."""
+    assert financiamento_incompativel(711.78, 320_000) is True
+    assert financiamento_incompativel(500_000, 400_000) is False
+    assert financiamento_incompativel(500_000, None) is False
+    assert financiamento_incompativel(None, 320_000) is False
+    assert financiamento_incompativel(0, 320_000) is False
+
+
+def test_data_implausivel():
+    assert data_implausivel(dt.date(1994, 6, 24)) is False  # contrato antigo real, legítimo
+    assert data_implausivel(dt.date(2026, 7, 1)) is False
+    assert data_implausivel(dt.date(1989, 12, 31)) is True
+    assert data_implausivel(dt.date(2099, 1, 1)) is True
+    assert data_implausivel(None) is False
 
 
 def test_cadastro_defasado_casos_reais():

@@ -22,12 +22,19 @@ _ABREVIACOES = {
 
 # "bairro" que na verdade é complemento (torre, subsolo, bloco, vaga, sala…):
 # ~8% das linhas preenchidas. Ancorada — nenhum bairro real casa.
+#
+# Nome de prédio (ED/EDIFICIO) e fragmento de logradouro deslocado (DE FARIA)
+# entraram depois de auditoria sobre a base real de 135.655 linhas: 3.163
+# linhas, 1.152 valores de "bairro" distintos não cobertos pelo padrão
+# original — o maior sozinho, "DE FARIA 157 E 227", 429 ocorrências (fragmento
+# de "R JOAQUIM DE FARIA LIMA" ou similar, deslocado pra coluna errada).
 _LIXO_BAIRRO = re.compile(
     r"^("
     r"TORRE\s*[0-9IVX]+|TORRE\s+[A-Z]\d?|BLOCOS?\s*[A-Z]?\d+|BL\s*\d+|"
     r"\d+\s*(SUBSOLO|SUB\s+SOLO|SS|DP|DORM|VG|VGS|VAGAS?|ANDAR|PAV|PAVTO|PISO)|"
     r"(SUBSOLO|SUB\s+SOLO|SS|SL|TERREO|MEZANINO|COBERTURA|LOJA|SALA|GARAGEM|DEPOSITO)\s*\d*|"
-    r"E\s+\d+\s*(VGS?|DP)|AP(TO)?\s*\d+|CASA\s*\d*|LOTE\s*\d+|QUADRA\s*[A-Z0-9]+"
+    r"E\s+\d+\s*(VGS?|DP|VAGAS?)(\s+.*)?|AP(TO)?\s*\d+|CASA\s*\d*|LOTE\s*\d+|QUADRA\s*[A-Z0-9]+|"
+    r"ED\.?(\s+.+)?|EDIFICIO(\s+.+)?|DE FARIA\b.*|DEP\s+.*"
     r")$"
 )
 

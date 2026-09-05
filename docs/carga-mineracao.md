@@ -76,7 +76,11 @@ Três decisões, tomadas com o `scripts/analisar_bairros.py` sobre a extração 
 - **B — filtrar lixo de complemento.** ~8% das linhas preenchidas trazem `TORRE 1`,
   `2 SUBSOLO`, `SS3`, `BLOCO 2` no campo `bairro` (`TORRE 1` sozinho: 1.015 linhas).
   `normalizar_bairro` devolve `''` nesses casos — senão o autocomplete sugere "TORRE
-  1" como se fosse um lugar. A regex é ancorada; nenhum bairro real casa.
+  1" como se fosse um lugar. A regex é ancorada; nenhum bairro real casa. Ampliada
+  depois de auditoria sobre a base completa (135.655 linhas): nome de prédio
+  (`ED`/`ED.`/`EDIFICIO`) e depósito (`DEP ...`) entraram, mais o caso específico
+  `DE FARIA ...` — fragmento de logradouro que vazou pro campo errado, 429
+  ocorrências sozinho. Mediu 3.223 linhas a mais cobertas pela ampliação.
 - **C — tabela de grafias aglutinadas** (`grafias_bairro.py`): 9 pares semeados
   (`ITAIMBIBI`, `VLFORMOSA`, `CASAVERDE`…), cresce à mão via o script.
 
@@ -117,7 +121,10 @@ coeridos, devolve os derivados.
 | `idade(acc)`                                                 | `2026 − acc`, ou `None` se implausível                                                                                                                                                                                                                     |
 | `linha_deslocada(situacao_bruta, financ_bruto)`              | `True` quando um campo de texto veio como data/número — colunas escorregaram na planilha                                                                                                                                                                   |
 | `valor_inconsistente(base, valor, vvr_proporcional)`         | `base ≠ max(declarado, VVR proporcional)` (tolerância R$ 1) — quase sempre base zerada com valor declarado                                                                                                                                                 |
-| `qualidade(deslocada, inconsistente)`                        | `1·deslocada + 2·inconsistente` → `0` ok · `1` · `2` · `3`. **`≠ 0` sai do cálculo por padrão**                                                                                                                                                            |
+| `valor_irrisorio(valor)`                                     | `valor < R$ 1.000` — pega taxa/parcela digitada no campo do imóvel mesmo quando o VVR "corrige" a base de cálculo e `valor_inconsistente` não pega nada (achado: 441 linhas, 258 delas com R$/m² calculado, 6 abaixo de R$ 100/m²)                        |
+| `financiamento_incompativel(valor, valor_financiado)`        | `valor_financiado > valor` — mesmo sintoma do `valor_irrisorio`, capturável mesmo sem VVR                                                                                                                                                                  |
+| `data_implausivel(data)`                                     | ano fora de `1990`–`ANO_BASE` — só erro de digitação óbvio (ex.: `2099`); contrato antigo regularizado tardiamente (visto até 1994) é legítimo e não entra aqui                                                                                            |
+| `qualidade(deslocada, inconsistente, irrisorio, financiamento_ruim, data_ruim)` | `1·deslocada + 2·inconsistente + 4·irrisorio + 8·financiamento_ruim + 16·data_ruim` → `0` ok, `!= 0` sai do cálculo por padrão                                                                                                                |
 | `cadastro_defasado(natureza, financ, proporcao, uso_cod)`    | `True` quando o IPTU não acompanhou a realidade (compra e venda + financiamento habitacional + proporção pequena + `uso` de terreno/institucional). **Não reclassifica — só marca.** Detalhe e casos reais em [`modelo-transacao.md`](modelo-transacao.md) |
 | `ano_transacao(data)` / `mes_transacao(data)`                | do `date`                                                                                                                                                                                                                                                  |
 
@@ -137,7 +144,20 @@ Sem a trava, o R$/m² de terreno medido na base dá **R$ 73/m²** em vez de **R$
 
 Constantes: `ALIQUOTA_ITBI = 0.03`, `PROPORCAO_MIN_METRICA = 99.0`,
 `FRACAO_MIN_TERRENO = 0.99`, `PROPORCAO_MIN_AGIO = 5.0`, `PROPORCAO_PEQUENA = 5.0`,
-`ANO_BASE = 2026`.
+`ANO_BASE = 2026`, `VALOR_TRANSACAO_MINIMO = 1000`,
+`ANO_TRANSACAO_MINIMO = 1990`, `ANO_TRANSACAO_MAXIMO = ANO_BASE`.
+
+### Causa-raiz da coluna extra de FEV-2026
+
+`carregar_itbi.py` lê 28 colunas por posição fixa porque a aba `FEV-2026` tem uma
+coluna extra e o cabeçalho de uma delas vem com erro de digitação
+(`Descrição do pardão (IPTU)`, sem o "r"). Auditoria sobre a base completa achou a
+causa: a **linha 2.196** daquela aba tem a razão social de uma incorporadora
+(`JAGUARIAIAVA DIALOGO EMPREENDIMENTOS IMOBILIARIOS`) vazada dentro da coluna
+numérica `Valor de Transação` — isso empurrou todas as colunas daquela linha 4
+posições à direita, e a aba inteira ganhou uma 29ª coluna fantasma pra acomodar o
+desvio de uma única linha. `linha_deslocada` já detecta e marca essa linha via
+`qualidade`; nada muda aqui, é só o registro do porquê.
 
 ---
 

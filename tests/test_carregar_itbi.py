@@ -1,13 +1,16 @@
 """Carga ponta a ponta com a amostra sintética tests/dados/amostra_itbi.xlsx."""
 
+import datetime as dt
 from pathlib import Path
 
+import openpyxl
 import pytest
 from django.core.management.base import CommandError
 
 from radar.management.commands import carregar_itbi as cmd
 from radar.management.commands.carregar_itbi import carregar
 from radar.models import Transacao
+from tests.dados.gerar_amostra_itbi import CABECALHO
 
 XLSX = Path(__file__).parent / "dados" / "amostra_itbi.xlsx"
 GEO = Path(__file__).parent / "dados" / "dados_geo_amostra"
@@ -223,3 +226,66 @@ def test_aba_sem_linhas_validas_nao_apaga_o_mes(monkeypatch):
 
     _carregar(substituir_mes=True)
     assert set(Transacao.objects.values_list("id", flat=True)) == antes
+
+
+# ---- qualidade ampliada: valor irrisório, financiamento e data implausível ----
+#
+# Planilha própria (não a amostra de 12 linhas usada acima) — os casos de
+# borda daqui não têm por que empurrar as contagens já fixadas nos outros
+# testes deste arquivo.
+
+D = dt.datetime
+
+LINHAS_QUALIDADE = [
+    # A: irrisório puro — VVR "fecha" a base de cálculo, então valor_inconsistente
+    # não pega nada; só o valor de origem (R$ 0,01) denuncia a linha.
+    [11111111111, "R TESTE A", 100, None, "CENTRO", None, 1000000, "1.Compra e venda",
+     0.01, D(2026, 3, 10), 228252, 100, 228252, 228252, None, 0, "1º CRI", 1000,
+     "Ativo Predial", 300, 10.0, 1.0, 119, 20, "APARTAMENTO EM CONDOMINIO", 23,
+     "RESIDENCIAL VERTICAL", 2010],
+    # B: irrisório + financiamento incompatível — o caso real da auditoria
+    # (R$ 711,78 declarado, R$ 320.000 financiado), sem VVR pra corrigir nada.
+    [22222222222, "R TESTE B", 200, None, "CENTRO", None, 1000000, "1.Compra e venda",
+     711.78, D(2026, 3, 12), 0, 100, 0, 711.78, "1.SFH", 320000, "1º CRI", 2000,
+     "Ativo Predial", 300, 10.0, 1.0, 91, 20, "APARTAMENTO EM CONDOMINIO", 23,
+     "RESIDENCIAL VERTICAL", 2010],
+    # C: data implausível puro — resto da linha limpo.
+    [33333333333, "R TESTE C", 300, None, "CENTRO", None, 1000000, "1.Compra e venda",
+     500000, D(2099, 1, 15), 500000, 100, 500000, 500000, None, 0, "1º CRI", 3000,
+     "Ativo Predial", 300, 10.0, 1.0, 150, 20, "APARTAMENTO EM CONDOMINIO", 23,
+     "RESIDENCIAL VERTICAL", 2010],
+]
+
+
+def _planilha_qualidade(tmp_path):
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    ws = wb.create_sheet("MAR-2026")
+    ws.append(CABECALHO)
+    for linha in LINHAS_QUALIDADE:
+        ws.append(linha)
+    caminho = tmp_path / "qualidade.xlsx"
+    wb.save(caminho)
+    return caminho
+
+
+@pytest.mark.django_db
+def test_valor_irrisorio_marca_qualidade_mesmo_com_vvr_corrigindo_base(tmp_path):
+    carregar(str(_planilha_qualidade(tmp_path)), base_dir_geo=str(GEO), blocos=3)
+    t = Transacao.objects.get(sql="11111111111")
+    assert t.qualidade == 4
+
+
+@pytest.mark.django_db
+def test_financiamento_maior_que_valor_declarado_marca_qualidade(tmp_path):
+    carregar(str(_planilha_qualidade(tmp_path)), base_dir_geo=str(GEO), blocos=3)
+    t = Transacao.objects.get(sql="22222222222")
+    assert t.valor_financiado == 320000
+    assert t.qualidade == 4 + 8  # irrisório + financiamento incompatível
+
+
+@pytest.mark.django_db
+def test_data_implausivel_marca_qualidade(tmp_path):
+    carregar(str(_planilha_qualidade(tmp_path)), base_dir_geo=str(GEO), blocos=3)
+    t = Transacao.objects.get(sql="33333333333")
+    assert t.qualidade == 16
