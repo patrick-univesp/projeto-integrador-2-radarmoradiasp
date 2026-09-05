@@ -11,7 +11,41 @@
   font-size: var(--t-titulo);
   font-weight: var(--peso-forte);
   letter-spacing: -.015em;
+  line-height: 1.1;
   color: var(--text);
+}
+
+.regiao__tipo {
+  margin-top: -2px;
+  font-size: var(--t-apoio);
+  line-height: 1.2;
+  color: var(--text-3);
+}
+
+.botao-comparar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  margin-top: var(--e-4);
+  min-height: var(--alvo-toque);
+  padding-inline: var(--e-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--raio-botao);
+  background: var(--surface);
+  font-size: .9375rem;
+  font-weight: 500;
+  color: var(--text);
+}
+.botao-comparar:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+.botao-comparar__icone {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .regiao__rotulo {

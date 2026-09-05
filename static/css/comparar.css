@@ -50,13 +50,6 @@
   color: var(--text-2);
 }
 
-.regiao__link-comparar {
-  display: inline-block;
-  margin-top: var(--e-3);
-  font-size: var(--t-apoio);
-  color: var(--accent-ink);
-}
-
 @media (min-width: 720px) {
   .comparar__titulo { font-size: 2.25rem; }
 }

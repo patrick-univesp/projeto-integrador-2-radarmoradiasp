@@ -5,6 +5,7 @@ decide *onde*; esta função decide *quais transações contam* e *como resumi-l
 Detalhe e critério de aceitação: ``docs/local/issues/08-servico-estatisticas.md``.
 """
 
+import datetime as dt
 import statistics
 from collections import defaultdict
 
@@ -15,7 +16,14 @@ from django.db.models import Max
 # 04/09/2026, ver referencia-itbi.md §2.4.
 USO_GRUPO_RESIDENCIAL = ("Casa / residência horizontal", "Apartamento / res. vertical")
 
-JANELA_ANOS_PADRAO = 2
+# Janela padrão da mediana: 12 meses a partir da transação mais recente **da
+# região** (não do calendário — área que ficou muda não some). Se 12 meses não
+# reúnem nem LIMIAR_JANELA_AMPLA vendas, alarga pra 24 — região pequena não fica
+# sem número por falta de volume recente. A granularidade é o mês (o corte é o
+# dia 1); antes era ano-calendário, o que dava de 12 a 24 meses conforme a data.
+JANELA_MESES_PADRAO = 12
+JANELA_MESES_AMPLA = 24
+LIMIAR_JANELA_AMPLA = 30
 
 LIMITE_CONFIANCA_INSUFICIENTE = 10
 LIMITE_CONFIANCA_BAIXA = 30
@@ -32,8 +40,8 @@ CONFIANCA_OK = "ok"
 LIMIAR_MES_FRACO = 3
 
 # A série não olha pra trás mais que isso a partir do mês mais recente com
-# dado na região. ano_min (JANELA_ANOS_PADRAO) já pode abrir uma janela de
-# quase 2 anos — se a região só tem transação no começo e no fim dela, a
+# dado na região. A janela da mediana pode chegar a 24 meses (JANELA_MESES_AMPLA,
+# região pequena) — se a região só tem transação no começo e no fim dela, a
 # série vira 2 pontos reais separados por ~20 buracos, que lê mal (achado em
 # 05/09/2026: Moema "ficou estranha"). 12 meses é enough pra mostrar
 # tendência recente sem essa esparsidade.
@@ -57,39 +65,63 @@ def _mediana_e_quartis(valores):
     return p25, statistics.median(valores), p75
 
 
-def transacoes_da_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=None):
+def _meses_atras(ano, mes, n):
+    """(ano, mes) menos n meses, como tupla (ano, mes)."""
+    absoluto = ano * 12 + (mes - 1) - n
+    return absoluto // 12, absoluto % 12 + 1
+
+
+def _primeiro_do_mes_atras(data, n):
+    """Dia 1 do mês ``n`` meses antes de ``data``."""
+    return dt.date(*_meses_atras(data.year, data.month, n), 1)
+
+
+def _na_janela(qs, data_min):
+    """``data_transacao >= data_min``. O ``ano_transacao__gte`` é só um
+    pré-filtro grosso que usa o índice ``(distrito_slug, ano_transacao)`` —
+    o corte fino é a data."""
+    return qs.filter(ano_transacao__gte=data_min.year, data_transacao__gte=data_min)
+
+
+def transacoes_da_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None):
     """O mesmo filtro de base que sustenta a mediana — qualidade boa, uso
-    residencial por padrão, janela de anos — mas deliberadamente **sem**
-    exigir ``rs_m2_construido``: excluir esconderia um SQL com cadastro
-    defasado (``referencia-itbi.md`` §2.4) que tem ``valor_transacao`` real e
-    só não tem R$/m² calculável. Fonte única para ``estatisticas_regiao`` e
-    para a lista de transações da #10 não divergirem.
+    residencial por padrão, janela de 12 meses (ver ``JANELA_MESES_PADRAO``) —
+    mas deliberadamente **sem** exigir ``rs_m2_construido``: excluir esconderia
+    um SQL com cadastro defasado (``referencia-itbi.md`` §2.4) que tem
+    ``valor_transacao`` real e só não tem R$/m² calculável. Fonte única para
+    ``estatisticas_regiao`` e para a lista de transações da #10 não divergirem.
+
+    ``data_min=None`` (padrão) calcula a janela a partir da transação mais
+    recente da região, alargando pra 24 meses se 12 tiverem poucas vendas.
+    ``data_min`` explícito fixa a mesma janela entre regiões (comparação #15).
     """
     base = queryset.filter(qualidade=0)
     if uso_grupo:
         base = base.filter(uso_grupo__in=uso_grupo)
 
-    if ano_min is None:
-        maior_ano = base.aggregate(m=Max("ano_transacao"))["m"]
-        if maior_ano is not None:
-            ano_min = maior_ano - (JANELA_ANOS_PADRAO - 1)
-    if ano_min is not None:
-        base = base.filter(ano_transacao__gte=ano_min)
+    if data_min is None:
+        mais_recente = base.aggregate(m=Max("data_transacao"))["m"]
+        if mais_recente is not None:
+            data_min = _primeiro_do_mes_atras(mais_recente, JANELA_MESES_PADRAO - 1)
+            if _na_janela(base, data_min).count() < LIMIAR_JANELA_AMPLA:
+                data_min = _primeiro_do_mes_atras(mais_recente, JANELA_MESES_AMPLA - 1)
 
-    return base, ano_min
+    if data_min is not None:
+        base = _na_janela(base, data_min)
+
+    return base, data_min
 
 
-def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=None):
+def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None):
     """Resumo estatístico de uma região. ``queryset`` já vem filtrado por região
     (ex.: ``Transacao.objects.filter(distrito_slug="mooca")``) — aqui entram os
     filtros de qualidade do dado, não de localização.
 
-    ``ano_min=None`` (padrão) usa os últimos ``JANELA_ANOS_PADRAO`` anos com
-    transação **nesta região**, para uma área que ficou muda recentemente não
-    aparecer vazia por causa de um ano de referência global. Passar ``ano_min``
+    ``data_min=None`` (padrão) usa a janela de 12 meses da transação mais
+    recente **nesta região** (ver ``transacoes_da_regiao``). Passar ``data_min``
     explícito fixa a mesma janela entre regiões — necessário para comparação (#15).
     """
-    base, ano_min = transacoes_da_regiao(queryset, uso_grupo=uso_grupo, ano_min=ano_min)
+    base, data_min = transacoes_da_regiao(queryset, uso_grupo=uso_grupo, data_min=data_min)
 
     n_transacoes = base.count()
     valores_transacao = list(base.values_list("valor_transacao", flat=True))
@@ -107,7 +139,7 @@ def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=No
     periodo = (min(datas), max(datas)) if datas else (None, None)
 
     return {
-        "ano_min": ano_min,
+        "data_min": data_min,
         "n_transacoes": n_transacoes,
         "n_com_metrica": n_com_metrica,
         "mediana_rs_m2": mediana_rs_m2,
@@ -134,13 +166,7 @@ def _meses_entre(inicio, fim):
     return meses
 
 
-def _meses_atras(ano, mes, n):
-    """(ano, mes) menos n meses, como tupla (ano, mes)."""
-    absoluto = ano * 12 + (mes - 1) - n
-    return absoluto // 12, absoluto % 12 + 1
-
-
-def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=None):
+def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None):
     """Mediana mensal de R$/m² (RF8) — evolução do valor típico no tempo.
 
     Usa ``data_transacao`` (quando o negócio aconteceu), nunca ``mes_guia``
@@ -151,11 +177,11 @@ def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=None):
 
     A série mostra no máximo os últimos ``SERIE_JANELA_MESES`` (12) meses,
     contados a partir do mês mais recente com dado **nesta região** — não do
-    calendário real. ``ano_min`` pode abrir uma janela de quase 2 anos; sem
-    esse teto, uma região com dado só no início e no fim dela vira uma série
-    de 2 pontos separados por ~20 buracos.
+    calendário real. Mantém o teto próprio porque ``data_min`` pode vir da
+    janela alargada de 24 meses (região pequena): a mediana usa 24, a série
+    ainda mostra 12.
     """
-    base, ano_min = transacoes_da_regiao(queryset, uso_grupo=uso_grupo, ano_min=ano_min)
+    base, data_min = transacoes_da_regiao(queryset, uso_grupo=uso_grupo, data_min=data_min)
     pares = (
         base.exclude(data_transacao__isnull=True)
         .filter(rs_m2_construido__isnull=False)
@@ -167,7 +193,7 @@ def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=None):
         por_mes[(data.year, data.month)].append(rs_m2)
 
     if not por_mes:
-        return [], ano_min
+        return [], data_min
 
     chaves = sorted(por_mes)
     inicio = max(chaves[0], _meses_atras(*chaves[-1], SERIE_JANELA_MESES - 1))
@@ -181,4 +207,4 @@ def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, ano_min=None):
             "n_transacoes": len(valores),
             "fraco": len(valores) < LIMIAR_MES_FRACO,
         })
-    return serie, ano_min
+    return serie, data_min

@@ -85,10 +85,31 @@ def test_transacao_de_1998_fora_do_recorte_padrao():
 
 
 @pytest.mark.django_db
-def test_ano_min_explicito_sobrepoe_a_janela_automatica():
+def test_janela_padrao_e_12_meses_do_mes_mais_recente():
+    for _ in range(30):  # 30+ evita o alargamento pra 24 meses
+        _transacao(ano_transacao=2026, data_transacao=dt.date(2026, 6, 15))
+    _transacao(ano_transacao=2025, data_transacao=dt.date(2025, 6, 1))  # 12 meses e 1 dia atrás
+    r = estatisticas_regiao(Transacao.objects.all())
+    assert r["data_min"] == dt.date(2025, 7, 1)
+    assert r["n_transacoes"] == 30  # a de jun/2025 fica de fora
+
+
+@pytest.mark.django_db
+def test_janela_alarga_para_24_meses_quando_ha_poucas_vendas():
+    for _ in range(3):
+        _transacao(ano_transacao=2026, data_transacao=dt.date(2026, 6, 15))
+    for _ in range(2):  # dentro de 24 meses, fora de 12
+        _transacao(ano_transacao=2025, data_transacao=dt.date(2025, 1, 15))
+    r = estatisticas_regiao(Transacao.objects.all())
+    assert r["data_min"] == dt.date(2024, 7, 1)
+    assert r["n_transacoes"] == 5
+
+
+@pytest.mark.django_db
+def test_data_min_explicita_sobrepoe_a_janela_automatica():
     _transacao(ano_transacao=2020, data_transacao=dt.date(2020, 1, 1))
     _transacao(ano_transacao=2026, data_transacao=dt.date(2026, 1, 1))
-    r = estatisticas_regiao(Transacao.objects.all(), ano_min=2020)
+    r = estatisticas_regiao(Transacao.objects.all(), data_min=dt.date(2020, 1, 1))
     assert r["n_transacoes"] == 2
 
 
@@ -179,10 +200,11 @@ def test_uma_unica_transacao_nao_quebra_o_calculo_de_quartis():
 
 
 @pytest.mark.django_db
-def test_estatisticas_expoe_o_ano_min_usado():
-    _transacao(ano_transacao=2026, data_transacao=dt.date(2026, 6, 1))
+def test_estatisticas_expoe_a_data_min_usada():
+    for _ in range(30):
+        _transacao(ano_transacao=2026, data_transacao=dt.date(2026, 6, 1))
     r = estatisticas_regiao(Transacao.objects.all())
-    assert r["ano_min"] == 2025  # JANELA_ANOS_PADRAO=2: 2026 e 2025
+    assert r["data_min"] == dt.date(2025, 7, 1)  # jun/2026 menos 11 meses
 
 
 # ---- transacoes_da_regiao (#10) ----
@@ -199,9 +221,9 @@ def test_transacoes_da_regiao_bate_com_n_transacoes_de_estatisticas_regiao():
     _transacao(uso_grupo="Garagem")  # fora por tipo
     _transacao(ano_transacao=1998, data_transacao=dt.date(1998, 1, 1))  # fora da janela
     stats = estatisticas_regiao(Transacao.objects.all())
-    lista, ano_min = transacoes_da_regiao(Transacao.objects.all())
+    lista, data_min = transacoes_da_regiao(Transacao.objects.all())
     assert lista.count() == stats["n_transacoes"] == 5
-    assert ano_min == stats["ano_min"]
+    assert data_min == stats["data_min"]
 
 
 @pytest.mark.django_db
@@ -214,17 +236,17 @@ def test_transacoes_da_regiao_nao_exige_rs_m2_construido():
 
 
 @pytest.mark.django_db
-def test_transacoes_da_regiao_ano_min_explicito_e_devolvido_igual():
+def test_transacoes_da_regiao_data_min_explicita_e_devolvida_igual():
     _transacao(ano_transacao=2020, data_transacao=dt.date(2020, 1, 1))
-    lista, ano_min = transacoes_da_regiao(Transacao.objects.all(), ano_min=2020)
-    assert ano_min == 2020
+    lista, data_min = transacoes_da_regiao(Transacao.objects.all(), data_min=dt.date(2020, 1, 1))
+    assert data_min == dt.date(2020, 1, 1)
     assert lista.count() == 1
 
 
 @pytest.mark.django_db
-def test_transacoes_da_regiao_sem_nenhuma_transacao_devolve_ano_min_none():
-    lista, ano_min = transacoes_da_regiao(Transacao.objects.none())
-    assert ano_min is None
+def test_transacoes_da_regiao_sem_nenhuma_transacao_devolve_data_min_none():
+    lista, data_min = transacoes_da_regiao(Transacao.objects.none())
+    assert data_min is None
     assert lista.count() == 0
 
 
@@ -288,20 +310,20 @@ def test_serie_mensal_mes_buraco_conta_como_fraco():
 
 @pytest.mark.django_db
 def test_serie_mensal_sem_transacao_devolve_lista_vazia():
-    serie, ano_min = serie_mensal(Transacao.objects.none())
+    serie, data_min = serie_mensal(Transacao.objects.none())
     assert serie == []
-    assert ano_min is None
+    assert data_min is None
 
 
 @pytest.mark.django_db
 def test_serie_mensal_limita_a_12_meses_do_mes_mais_recente():
     """Achado em 05/09/2026: sem teto, uma região com dado só no início e no
-    fim da janela de ano_min (quase 2 anos) vira uma série de 2 pontos
-    separados por ~20 buracos — lê mal. A série corta pros últimos 12 meses
-    a partir do mês mais recente com dado, não do calendário real."""
+    fim da janela alargada (24 meses) vira uma série de 2 pontos separados por
+    ~20 buracos — lê mal. A série corta pros últimos 12 meses a partir do mês
+    mais recente com dado, não do calendário real."""
     _transacao(data_transacao=dt.date(2025, 1, 10), ano_transacao=2025)
     _transacao(data_transacao=dt.date(2026, 1, 10), ano_transacao=2026)
-    serie, _ = serie_mensal(Transacao.objects.all(), ano_min=2025)
+    serie, _ = serie_mensal(Transacao.objects.all(), data_min=dt.date(2025, 1, 1))
     assert (serie[0]["ano"], serie[0]["mes"]) == (2025, 2)
     assert (serie[-1]["ano"], serie[-1]["mes"]) == (2026, 1)
     assert len(serie) == 12

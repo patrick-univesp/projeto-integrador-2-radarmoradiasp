@@ -17,17 +17,15 @@
   margin-bottom: var(--e-3);
 }
 
-.serie__eixo {
-  font-size: var(--t-rotulo);
-  color: var(--text-3);
-  margin-bottom: var(--e-1);
-}
-
 .serie__grafico {
   display: block;
   width: 100%;
   height: auto;
   font-family: var(--fonte-texto);
+}
+
+.serie__fundo {
+  fill: var(--surface-2);
 }
 
 .serie__grade {
@@ -43,12 +41,21 @@
   stroke-linejoin: round;
   stroke-linecap: round;
 }
-.serie__ponto { fill: var(--r4); }
+.serie__ponto {
+  fill: var(--r4);
+  transition: r .12s ease;
+}
 .serie__ponto--fraco { fill: var(--r2); }
 
 .serie__rotulo-mes {
   font-size: 7px;
   fill: var(--text-3);
+}
+
+.serie__eixo-y {
+  font-size: 7px;
+  fill: var(--text-2);
+  font-variant-numeric: tabular-nums;
 }
 
 .serie__vazio {
@@ -135,21 +142,38 @@
 }
 
 .serie__tabela-detalhes {
-  margin-top: var(--e-3);
-  border-top: 1px dashed var(--line);
-  padding-top: var(--e-2);
+  margin-top: var(--e-4);
 }
 
 .serie__tabela-gatilho {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  min-height: var(--alvo-toque);
+  padding-inline: var(--e-2);
+  border-radius: var(--raio-atalho);
   font-size: var(--t-apoio);
+  font-weight: var(--peso-forte);
   color: var(--accent);
   cursor: pointer;
-  font-weight: var(--peso-forte);
   user-select: none;
+  list-style: none;
 }
+.serie__tabela-gatilho::-webkit-details-marker { display: none; }
 
 .serie__tabela-gatilho:hover {
+  background: var(--surface-2);
   color: var(--accent-ink);
+}
+
+.serie__tabela-chevron {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  transition: transform .15s ease;
+}
+.serie__tabela-detalhes[open] .serie__tabela-chevron {
+  transform: rotate(90deg);
 }
 
 .serie__tabela-envoltura {

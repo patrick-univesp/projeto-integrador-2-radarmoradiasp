@@ -1,5 +1,5 @@
 import re
-from decimal import Decimal
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 
 from django.core.paginator import Paginator
 from django.http import Http404, HttpResponsePermanentRedirect, HttpResponseRedirect, JsonResponse
@@ -95,8 +95,23 @@ ALTURA_PLOT_SERIE = 84
 ALTURA_ROTULOS_SERIE = 28
 MARGEM_ESQ_SERIE = 4
 MARGEM_TOPO_SERIE = 8
+# Quantas faixas o eixo Y tenta ter — o passo "redondo" real sai de _passo_eixo.
+EIXO_Y_FAIXAS_ALVO = 4
 # Menos de 2 meses com mediana não é "evolução" — é o estado vazio da #14.
 SERIE_MIN_PONTOS = 2
+
+
+def _passo_eixo(faixa_bruta):
+    """Passo de eixo "redondo" — 1, 2, 2.5 ou 5 × 10^k, o menor que cobre
+    ``faixa_bruta``. Ex.: 588 → 1000; 190 → 200; 42 → 50."""
+    faixa = Decimal(faixa_bruta)
+    if faixa <= 0:
+        return Decimal(1)
+    base = Decimal(10) ** faixa.adjusted()
+    for mult in (Decimal(1), Decimal(2), Decimal("2.5"), Decimal(5)):
+        if faixa <= mult * base:
+            return mult * base
+    return Decimal(10) * base
 
 # uso_grupo -> slug do glifo/ilustração (#18). Slugs batem 1:1 com os 11
 # uso_grupo de radar/carga/mineracao.py::_GRUPOS_USO. Grupo desconhecido ou
@@ -202,18 +217,33 @@ def _grafico_serie(serie):
         folga = (v_min * Decimal("0.1")) or Decimal("1")
         v_min, v_max = v_min - folga, v_max + folga
 
+    # Eixo Y em valores "redondos": passo de _passo_eixo, limites esticados pro
+    # múltiplo do passo. Os pontos ganham folga natural do topo/chão e as linhas
+    # de grade caem em números legíveis (R$ 4.000, 5.000, …), não no min/max cru.
+    passo_y = _passo_eixo((v_max - v_min) / EIXO_Y_FAIXAS_ALVO)
+    eixo_min = (v_min / passo_y).to_integral_value(ROUND_FLOOR) * passo_y
+    eixo_max = (v_max / passo_y).to_integral_value(ROUND_CEILING) * passo_y
+    if eixo_max <= eixo_min:
+        eixo_max = eixo_min + passo_y
+
     n = len(serie)
     passo_x = (LARGURA_SERIE - 2 * MARGEM_ESQ_SERIE) / max(n - 1, 1)
-
-    def _y(valor):
-        proporcao = float((valor - v_min) / (v_max - v_min))
-        return MARGEM_TOPO_SERIE + ALTURA_PLOT_SERIE * (1 - proporcao)
 
     # String, não número: LANGUAGE_CODE="pt-br" localiza float no template
     # (ponto -> vírgula) e "cx=4,0" quebra o atributo SVG (mesma armadilha do
     # pos_mediana_pct da #09).
     def _num(valor):
         return f"{valor:g}"
+
+    def _y(valor):
+        proporcao = float((valor - eixo_min) / (eixo_max - eixo_min))
+        return MARGEM_TOPO_SERIE + ALTURA_PLOT_SERIE * (1 - proporcao)
+
+    linhas_y = []
+    marca = eixo_min
+    while marca <= eixo_max:
+        linhas_y.append({"y": _num(_y(marca)), "rotulo": _formatar_rs(marca)})
+        marca += passo_y
 
     pontos = []
     ano_anterior = None
@@ -266,10 +296,12 @@ def _grafico_serie(serie):
         "pontos": pontos,
         "segmentos": segmentos,
         "y_topo": _num(MARGEM_TOPO_SERIE),
+        "altura_plot": _num(ALTURA_PLOT_SERIE),
         "y_base": _num(y_base),
         "y_rotulos": _num(y_base + 14),
-        "rotulo_topo": _formatar_rs(v_max),
-        "rotulo_base": _formatar_rs(v_min),
+        "linhas_y": linhas_y,
+        "rotulo_base": _formatar_rs(eixo_min),
+        "rotulo_topo": _formatar_rs(eixo_max),
         "ultimo_ponto": ultimo_ponto,
     }
 
@@ -371,15 +403,15 @@ def regiao(request, slug):
     stats = estatisticas_regiao(Transacao.objects.filter(distrito_slug=slug))
     destaque = _contexto_destaque(stats)
 
-    serie, _ = serie_mensal(Transacao.objects.filter(distrito_slug=slug), ano_min=stats["ano_min"])
+    serie, _ = serie_mensal(Transacao.objects.filter(distrito_slug=slug), data_min=stats["data_min"])
     grafico_serie = _grafico_serie(serie)
 
-    # Mesmo ano_min da mediana acima: a soma dos itens paginados bate com
+    # Mesma data_min da mediana acima: a soma dos itens paginados bate com
     # stats["n_transacoes"] porque é o mesmo filtro, só reordenado.
     ordenar = request.GET.get("ordenar", "data")
     if ordenar not in ORDENACOES_TRANSACOES:
         ordenar = "data"
-    lista, _ = transacoes_da_regiao(Transacao.objects.filter(distrito_slug=slug), ano_min=stats["ano_min"])
+    lista, _ = transacoes_da_regiao(Transacao.objects.filter(distrito_slug=slug), data_min=stats["data_min"])
     lista = lista.order_by(ORDENACOES_TRANSACOES[ordenar])
     pagina = Paginator(lista, TRANSACOES_POR_PAGINA).get_page(request.GET.get("pagina"))
 
@@ -399,21 +431,23 @@ def regiao(request, slug):
 
 
 def _stats_alinhadas(slug_a, slug_b):
-    """Estatísticas das duas regiões na **mesma janela de anos** — comparar a
-    mediana de um período com a de outro período diferente seria enganoso.
-    Usa a janela mais antiga das duas (ver ``estatisticas_regiao``, que já
-    antecipa esse uso)."""
+    """Estatísticas das duas regiões na **mesma janela** — comparar a mediana de
+    um período com a de outro período diferente seria enganoso. Usa a janela
+    mais antiga das duas (ver ``estatisticas_regiao``, que já antecipa esse uso)."""
     qs_a = Transacao.objects.filter(distrito_slug=slug_a)
     qs_b = Transacao.objects.filter(distrito_slug=slug_b)
 
-    anos = [
-        a
-        for a in (estatisticas_regiao(qs_a)["ano_min"], estatisticas_regiao(qs_b)["ano_min"])
-        if a is not None
+    datas = [
+        d
+        for d in (estatisticas_regiao(qs_a)["data_min"], estatisticas_regiao(qs_b)["data_min"])
+        if d is not None
     ]
-    ano_min_comum = min(anos) if anos else None
+    data_min_comum = min(datas) if datas else None
 
-    return estatisticas_regiao(qs_a, ano_min=ano_min_comum), estatisticas_regiao(qs_b, ano_min=ano_min_comum)
+    return (
+        estatisticas_regiao(qs_a, data_min=data_min_comum),
+        estatisticas_regiao(qs_b, data_min=data_min_comum),
+    )
 
 
 def _diferenca(stats_a, stats_b):

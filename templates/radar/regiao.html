@@ -21,8 +21,19 @@
   <header class="regiao__topo">
     <p class="mono regiao__zona">Zona {{ regiao.zona }}</p>
     <h1 class="regiao__nome">{{ regiao.nome }}</h1>
-    <a class="regiao__link-comparar" href="{% url 'radar:comparar' %}?a={{ regiao.slug }}">Comparar com outra região</a>
+    <p class="regiao__tipo">Distrito administrativo</p>
   </header>
+
+  <a class="botao-comparar" href="{% url 'radar:comparar' %}?a={{ regiao.slug }}">
+    <svg class="botao-comparar__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 9h14" />
+      <path d="M13 5l4 4l-4 4" />
+      <path d="M21 15H7" />
+      <path d="M11 11l-4 4l4 4" />
+    </svg>
+    Comparar com outra região
+  </a>
 
   {% if mediana_fmt %}
     <div class="regiao__layout">
@@ -51,13 +62,16 @@
               </div>
             {% endif %}
 
-            <p class="serie__eixo">Escala do gráfico: R$&#160;{{ grafico_serie.rotulo_base }} a R$&#160;{{ grafico_serie.rotulo_topo }} por m²</p>
             <svg class="serie__grafico" viewBox="0 0 {{ grafico_serie.largura }} {{ grafico_serie.altura }}"
-                 role="img" aria-label="Gráfico de linha da evolução mensal do valor típico por metro quadrado">
-              <line class="serie__grade" x1="0" y1="{{ grafico_serie.y_topo }}"
-                    x2="{{ grafico_serie.largura }}" y2="{{ grafico_serie.y_topo }}" />
-              <line class="serie__grade" x1="0" y1="{{ grafico_serie.y_base }}"
-                    x2="{{ grafico_serie.largura }}" y2="{{ grafico_serie.y_base }}" />
+                 role="img"
+                 aria-label="Gráfico de linha da evolução mensal do valor típico por metro quadrado, de R$ {{ grafico_serie.rotulo_base }} a R$ {{ grafico_serie.rotulo_topo }} por m²">
+              <rect class="serie__fundo" x="0" y="{{ grafico_serie.y_topo }}"
+                    width="{{ grafico_serie.largura }}" height="{{ grafico_serie.altura_plot }}" rx="4" />
+              {% for l in grafico_serie.linhas_y %}
+                <line class="serie__grade" x1="0" y1="{{ l.y }}"
+                      x2="{{ grafico_serie.largura }}" y2="{{ l.y }}" />
+                <text class="serie__eixo-y" x="3" y="{{ l.y }}" dy="-2">R$&#160;{{ l.rotulo }}</text>
+              {% endfor %}
               {% for pontos_linha in grafico_serie.segmentos %}
                 <polyline class="serie__linha" points="{{ pontos_linha }}" fill="none" />
               {% endfor %}
@@ -82,7 +96,13 @@
             </svg>
 
             <details class="serie__tabela-detalhes">
-              <summary class="serie__tabela-gatilho">Ver valores mês a mês em tabela</summary>
+              <summary class="serie__tabela-gatilho">
+                <svg class="serie__tabela-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 6l6 6l-6 6" />
+                </svg>
+                Ver valores mês a mês
+              </summary>
               <div class="serie__tabela-envoltura">
                 <table class="serie__tabela">
                   <thead>
