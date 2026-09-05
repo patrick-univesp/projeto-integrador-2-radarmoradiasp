@@ -72,17 +72,17 @@ PRECISAO_GEO_PADRAO = (
 QUALIDADE_RESSALVAS = {
     1: "As colunas desta linha vieram deslocadas na planilha original, então algum "
        "campo pode estar com o valor errado.",
-    2: "A base de cálculo do imposto não bate com o valor declarado nem com o "
-       "valor de referência da Prefeitura.",
+    2: "A base de cálculo do imposto não corresponde ao valor declarado: quase "
+       "sempre porque a base veio zerada na planilha de origem.",
     4: "O valor declarado é simbólico (abaixo de R$ 1.000): não representa o "
        "preço real do imóvel.",
     8: "O valor financiado pelo banco é maior que o valor declarado da "
        "transação, então o valor declarado provavelmente não é o preço real do negócio.",
     16: "A data da transação está fora da faixa plausível: pode ser erro de "
         "digitação na planilha original.",
-    32: "O cadastro deste imóvel na Prefeitura (SQL) foi cancelado ou não existe "
-        "para o exercício atual, então o tipo, a área e o uso registrados podem não "
-        "corresponder mais ao imóvel negociado.",
+    32: "O cadastro deste imóvel na Prefeitura foi cancelado ou não existe para o "
+        "exercício atual, então o tipo e a área registrados podem não corresponder "
+        "mais ao imóvel negociado.",
 }
 
 
@@ -528,6 +528,18 @@ def transacao(request, id):
     precisao_rotulo, precisao_descricao = PRECISAO_GEO.get(t.geo_nivel, PRECISAO_GEO_PADRAO)
     slug_uso = SLUG_ILUSTRACAO_USO.get(t.uso_grupo)
 
+    # base_calculo e VVR só entram na grade quando divergem do declarado: base
+    # zerada na origem (bit 2) aparece se ficou abaixo dele; o VVR só se ficou
+    # acima (virou piso da base) — abaixo disso é a fração proporcional e confunde.
+    base_calculo_fmt = (
+        _formatar_rs(t.base_calculo) if t.base_calculo < t.valor_transacao - 1 else None
+    )
+    vvr_proporcional_fmt = (
+        _formatar_rs(t.vvr_proporcional)
+        if t.vvr_proporcional and t.vvr_proporcional > t.valor_transacao + 1
+        else None
+    )
+
     return render(
         request,
         "radar/transacao.html",
@@ -536,6 +548,8 @@ def transacao(request, id):
             "endereco": _endereco(t),
             "ilustracao_uso": f"img/uso/{slug_uso}-96.webp" if slug_uso else None,
             "valor_fmt": _formatar_rs(t.valor_transacao),
+            "vvr_proporcional_fmt": vvr_proporcional_fmt,
+            "base_calculo_fmt": base_calculo_fmt,
             # `0` na planilha é "sem financiamento", não "financiado R$ 0" —
             # mesmo tratamento que financiamento_incompativel já dá na carga.
             "valor_financiado_fmt": _formatar_rs(t.valor_financiado) if t.valor_financiado else None,

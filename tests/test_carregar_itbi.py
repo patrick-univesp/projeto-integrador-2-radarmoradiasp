@@ -1,6 +1,7 @@
 """Carga ponta a ponta com a amostra sintética tests/dados/amostra_itbi.xlsx."""
 
 import datetime as dt
+from decimal import Decimal
 from pathlib import Path
 
 import openpyxl
@@ -83,6 +84,15 @@ def test_flag_cadastro_defasado():
     _carregar()
     assert Transacao.objects.get(sql="16526701080", complemento="BL A AP 71").flag_cadastro_defasado
     assert not Transacao.objects.get(sql="00103604280", numero="391").flag_cadastro_defasado
+
+
+@pytest.mark.django_db
+def test_vvr_proporcional_armazenado():
+    """VVR proporcional (C_VVRP) era lido só pra valor_inconsistente e descartado;
+    agora fica gravado pra página de transação (#37)."""
+    _carregar()
+    t = Transacao.objects.get(sql="00103604280", numero="391")
+    assert t.vvr_proporcional == Decimal("500000")
 
 
 @pytest.mark.django_db

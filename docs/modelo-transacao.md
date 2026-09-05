@@ -28,9 +28,9 @@ porque o rótulo do imóvel não é confiável (`flag_cadastro_defasado`) ou por
 precisa deles para ser idempotente (`ano_guia`, `mes_guia`) — e o número é o produto.
 O resto entra por migration quando uma tela pedir (`ALTER TABLE ADD COLUMN` é barato em
 SQLite; remover e renomear é que dói) — foi exatamente assim que `valor_financiado`,
-`natureza`, `tipo_financiamento`, `cartorio`, `matricula` e `situacao_sql` entraram
-depois (migrations `0007`–`0009`), levando o total a **29 campos** (ver a tabela
-completa abaixo).
+`natureza`, `tipo_financiamento`, `cartorio`, `matricula`, `situacao_sql` e
+`vvr_proporcional` entraram depois (migrations `0007`–`0010`), levando o total a
+**30 campos** (ver a tabela completa abaixo).
 
 ---
 
@@ -82,7 +82,8 @@ flowchart LR
 | `lon`                    | `FloatField`          | `null=True`     | composto `(lat, lon)`           | geo                |                                                                                                                                                     |
 | `geo_nivel`              | `CharField(2)`        | `blank=True`    | —                               | geo                | `T1` (lote exato) → `T4` (centroide da quadra, ~100 m), ou `--` sem coordenada                                                                      |
 | `valor_transacao`        | `DecimalField(15, 2)` | obrigatório     | —                               | planilha           | valor declarado pelo contribuinte                                                                                                                   |
-| `base_calculo`           | `DecimalField(15, 2)` | obrigatório     | —                               | planilha           | base do ITBI = `max(declarado, VVR proporcional)`; ~1% vem `0` na origem                                                                            |
+| `base_calculo`           | `DecimalField(15, 2)` | obrigatório     | —                               | planilha           | base do ITBI = `max(declarado, VVR proporcional)`; ~1% vem `0` na origem. Exibido na página de transação só quando `< valor_transacao` (a ressalva do bit 2) |
+| `vvr_proporcional`       | `DecimalField(15, 2)` | `null=True`     | —                               | planilha           | VVR da fração transmitida ("referência da Prefeitura"). Exibido só quando `> valor_transacao` (virou piso da base); abaixo disso é a fração e confunde |
 | `valor_financiado`       | `DecimalField(15, 2)` | `null=True`     | —                               | planilha           | só usado para marcar `qualidade` (financiamento maior que o declarado); nunca entra em conta de R$/m² ou mediana                                    |
 | `natureza`               | `CharField(120)`      | `blank=True`    | —                               | planilha           | cru (`"1.Compra e venda"`); exibição (`radar/views.py::_sem_prefixo_numerico`) tira o prefixo numérico, nunca o banco                               |
 | `tipo_financiamento`     | `CharField(80)`       | `blank=True`    | —                               | planilha           | idem `natureza`; vazio quando não há financiamento                                                                                                  |
@@ -273,6 +274,7 @@ classDiagram
         CharField geo_nivel
         DecimalField valor_transacao
         DecimalField base_calculo
+        DecimalField vvr_proporcional
         DecimalField valor_financiado
         CharField natureza
         CharField tipo_financiamento
@@ -305,18 +307,18 @@ sem índice até uma tela agregá-lo.
 
 ## Fora de escopo agora (entram por migration quando uma tela pedir)
 
-`referencia`, `setor`, `quadra`, `lote`, `situacao_sql`, `natureza_cod`, `vvr`,
-`proporcao`, `vvr_proporcional`, `tributado_por_vvr`, `itbi_estimado`,
-`pct_financiado`, `area_terreno`, `testada`, `fracao_ideal`, `uso_cod`, `uso_desc`,
-`padrao_cod`, `padrao_desc`, `padrao_nivel`, `acc`, `idade`, `rs_m2_terreno`, `agio`,
-`mes_transacao`, `defasagem_dias`, `subprefeitura`, `regiao`,
+`referencia`, `setor`, `quadra`, `lote`, `natureza_cod`, `vvr`, `proporcao`,
+`tributado_por_vvr`, `itbi_estimado`, `pct_financiado`, `area_terreno`, `testada`,
+`fracao_ideal`, `uso_cod`, `uso_desc`, `padrao_cod`, `padrao_desc`, `padrao_nivel`,
+`acc`, `idade`, `rs_m2_terreno`, `agio`, `mes_transacao`, `defasagem_dias`,
+`subprefeitura`, `regiao`,
 `flag_suspeito`, `flag_transacao_antiga`, `flag_valor_inconsistente`.
 
-> `matricula`, `cartorio`, `natureza` e `tipo_financiamento` **saíram** desta lista em
-> 06/09/2026 — passaram a ser armazenados (migrations `0007`/`0008`), exibidos na
-> página de transação. `proporcao` e `uso_cod` **não** viram campo — a carga lê os
-> dois só para derivar `flag_cadastro_defasado` e as métricas; o que não entra é o
-> armazenamento, não a leitura.
+> `matricula`, `cartorio`, `natureza`, `tipo_financiamento`, `situacao_sql` e
+> `vvr_proporcional` **saíram** desta lista (migrations `0007`–`0010`): são
+> armazenados e exibidos na página de transação. `proporcao` e `uso_cod` **não**
+> viram campo: a carga lê os dois só para derivar `flag_cadastro_defasado` e as
+> métricas; o que não entra é o armazenamento, não a leitura.
 
 ## Como evoluir o esquema
 

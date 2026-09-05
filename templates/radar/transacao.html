@@ -51,6 +51,12 @@
         <dd>{% if rs_m2_fmt %}R$&nbsp;{{ rs_m2_fmt }}{% else %}<span aria-label="não aplicável">—</span>{% endif %}</dd>
       </div>
       <div><dt>data</dt><dd>{{ t.data_transacao|date:"d/m/Y"|default:"—" }}</dd></div>
+      {% if vvr_proporcional_fmt %}
+        <div><dt>referência da Prefeitura</dt><dd>R$&nbsp;{{ vvr_proporcional_fmt }}</dd></div>
+      {% endif %}
+      {% if base_calculo_fmt %}
+        <div><dt>base de cálculo do ITBI</dt><dd>R$&nbsp;{{ base_calculo_fmt }}</dd></div>
+      {% endif %}
       {% if valor_financiado_fmt %}
         <div><dt>valor financiado</dt><dd>R$&nbsp;{{ valor_financiado_fmt }}</dd></div>
         <div><dt>financiamento</dt><dd>{{ tipo_financiamento_fmt|default:"—" }}</dd></div>

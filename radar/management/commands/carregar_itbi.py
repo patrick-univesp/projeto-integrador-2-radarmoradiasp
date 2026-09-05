@@ -81,6 +81,7 @@ def _linha_para_transacao(bruta, indices, ano_guia, mes_guia):
         geo_nivel=nivel,
         valor_transacao=_dec(valor),
         base_calculo=_dec(base),
+        vvr_proporcional=_dec(vvrp, obrigatorio=False),
         valor_financiado=_dec(valfin, obrigatorio=False),
         natureza=natureza[:120],
         tipo_financiamento=tipofin[:80],

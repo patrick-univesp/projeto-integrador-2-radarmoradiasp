@@ -687,6 +687,42 @@ def test_transacao_mostra_valor_financiado_quando_presente(client):
 
 
 @pytest.mark.django_db
+def test_transacao_mostra_vvr_quando_virou_piso_da_base(client):
+    """#37: quando o VVR proporcional passa do declarado, ele virou o piso da
+    base de cálculo — aí aparece ("declarou menos que a referência da Prefeitura")."""
+    t = _transacao_regiao(
+        valor_transacao=Decimal("375000"),
+        base_calculo=Decimal("485000"),
+        vvr_proporcional=Decimal("485000"),
+    )
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "referência da Prefeitura" in corpo
+    assert "485.000" in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_vvr_menor_que_declarado_nao_aparece(client):
+    """VVR proporcional abaixo do declarado é só a fração proporcional — número
+    que confunde ao lado do valor cheio, não entra na tela."""
+    t = _transacao_regiao(valor_transacao=Decimal("350000"), vvr_proporcional=Decimal("31000"))
+    corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()
+    assert "referência da Prefeitura" not in corpo
+
+
+@pytest.mark.django_db
+def test_transacao_base_de_calculo_so_aparece_quando_veio_menor(client):
+    """base < declarado = base zerada/quebrada na origem (a ressalva do bit 2).
+    base == declarado (o comum) não repete o número grande."""
+    igual = _transacao_regiao(valor_transacao=Decimal("500000"), base_calculo=Decimal("500000"))
+    corpo = client.get(reverse("radar:transacao", args=[igual.id])).content.decode()
+    assert "base de cálculo do ITBI" not in corpo
+
+    zerada = _transacao_regiao(valor_transacao=Decimal("500000"), base_calculo=Decimal("0"))
+    corpo = client.get(reverse("radar:transacao", args=[zerada.id])).content.decode()
+    assert "base de cálculo do ITBI" in corpo
+
+
+@pytest.mark.django_db
 def test_transacao_natureza_incomum_mostra_selo_sem_prefixo_numerico(client):
     t = _transacao_regiao(natureza="4.Arrematação (em leilão ou hasta pública)")
     corpo = client.get(reverse("radar:transacao", args=[t.id])).content.decode()

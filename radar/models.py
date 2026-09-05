@@ -66,6 +66,9 @@ class Transacao(models.Model):
 
     valor_transacao = models.DecimalField(max_digits=15, decimal_places=2)
     base_calculo = models.DecimalField(max_digits=15, decimal_places=2)
+    # VVR da fração transmitida ("valor de referência da Prefeitura");
+    # base_calculo = max(este, valor_transacao). Exibido na página de transação.
+    vvr_proporcional = models.DecimalField(max_digits=15, decimal_places=2, null=True)
     # Só usado para marcar qualidade (financiamento maior que o valor declarado
     # denuncia que o declarado não é o preço real do negócio) — não entra em
     # nenhuma conta de R$/m² ou mediana.
