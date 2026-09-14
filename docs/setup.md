@@ -126,7 +126,7 @@ python manage.py carregar_itbi --arquivo "...xlsx" --sem-geo --limite 500
 primeiras linhas.
 
 Ou pelo admin: `/admin/` → **Cargas mensais → Carregar planilha** (upload de até
-40 MB; roda em segundo plano, progresso na própria linha). Aceita abas de qualquer
+50 MB; roda em segundo plano, progresso na própria linha). Aceita abas de qualquer
 ano e é idempotente por mês (`--substituir-mes`).
 
 As duas rotas chamam a mesma função de carga, mas **só o upload pelo admin registra

@@ -18,7 +18,7 @@ from radar.models import CargaMensal
 
 logger = logging.getLogger(__name__)
 
-TAMANHO_MAX_MB = 40
+TAMANHO_MAX_MB = 50
 # Linha em RODANDO mais velha que isto = thread/processo morto; não bloqueia nova carga.
 RODANDO_EXPIRA = dt.timedelta(hours=2)
 

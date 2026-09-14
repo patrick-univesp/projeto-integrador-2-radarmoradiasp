@@ -77,14 +77,14 @@ tomar `database is locked`. Fora, o lock dura só o delete mais os inserts.
 ## Upload pelo admin
 
 No `/admin/`, **Cargas mensais → Carregar planilha**: envia o `.xlsx` (limite
-40 MB), a view salva num arquivo temporário,
+50 MB), a view salva num arquivo temporário,
 cria um registro **`CargaMensal`** e dispara `carregar()` numa `threading.Thread`.
 Volta na hora; o progresso (linhas gravadas, `qualidade!=0`, sem geo, pico de
 memória) aparece na linha do `CargaMensal`, que é só-leitura.
 
 ```mermaid
 flowchart LR
-    U["upload .xlsx<br/>(≤ 40 MB, .xlsx)"] --> V["view do admin"]
+    U["upload .xlsx<br/>(≤ 50 MB, .xlsx)"] --> V["view do admin"]
     V --> G{"já há carga<br/>pendente/rodando?"}
     G -- sim --> R["recusa"]
     G -- não --> C["cria CargaMensal(pendente)<br/>+ Thread(daemon)"]
