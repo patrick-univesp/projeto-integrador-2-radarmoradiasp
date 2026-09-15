@@ -932,6 +932,19 @@ def test_500_renderiza_sem_contexto_de_requisicao():
     assert "{%" not in saida
 
 
+def test_500_nao_usa_estilo_inline():
+    """A CSP de produção (style-src 'self') bloqueia <style> e style="": a página
+    de erro aparecia sem formatação. O CSS vem de arquivo, por caminho fixo."""
+    from django.contrib.staticfiles import finders
+
+    saida = get_template("500.html").template.render(Context({}))
+    assert "<style" not in saida
+    assert "style=" not in saida
+    for href in re.findall(r'href="/static/([^"]+\.css)"', saida):
+        assert finders.find(href), f"500.html aponta para um CSS que não existe: {href}"
+    assert "/static/css/erro-500.css" in saida
+
+
 @pytest.mark.parametrize(
     "nome",
     [
@@ -939,6 +952,7 @@ def test_500_renderiza_sem_contexto_de_requisicao():
         "css/base.css",
         "css/transicao.css",
         "css/erro.css",
+        "css/erro-500.css",
         "css/regiao.css",
         "js/busca_animada.js",
         "js/contador_transacoes.js",

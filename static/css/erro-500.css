@@ -1,0 +1,27 @@
+/* Radar da Moradia SP — página 500.
+ *
+ * Arquivo à parte, e não <style> no template: a CSP de produção (style-src 'self')
+ * bloqueia estilo inline, e a página aparecia sem formatação justamente durante um
+ * erro. O template chama este arquivo e o tokens.css por caminho fixo em /static/,
+ * porque o handler500 renderiza sem contexto e {% static %} não está disponível.
+ * Se o próprio estático falhar, o texto continua legível sem estilo. */
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--e-6);
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 460px; }
+h1 {
+  margin: 0;
+  font-size: var(--t-titulo);
+  font-weight: var(--peso-forte);
+  letter-spacing: -.015em;
+}
+p { margin: var(--e-4) 0 0; color: var(--text-2); }
+a { color: var(--accent); }
