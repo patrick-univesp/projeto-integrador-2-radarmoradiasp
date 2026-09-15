@@ -5,11 +5,14 @@ Celery/Redis — ver ``docs/carga-itbi.md``.
 
 import datetime as dt
 import logging
-import tempfile
 import threading
+import time
+import uuid
 from pathlib import Path
 
 from django import forms
+from django.conf import settings
+from django.core.files.move import file_move_safe
 from django.db import connection
 from django.utils import timezone
 
@@ -74,20 +77,48 @@ def _abas_lista(texto: str):
     return [a.strip() for a in texto.split(",") if a.strip()] or None
 
 
+def _apagar_sobras(pasta: Path):
+    """Apaga arquivos esquecidos na pasta de upload: a planilha de uma carga cujo
+    processo morreu antes do ``finally``, ou o temporário de um upload interrompido.
+    Só os velhos — o upload da requisição atual acabou de ser gravado ali."""
+    limite = time.time() - RODANDO_EXPIRA.total_seconds()
+    for arq in pasta.iterdir():
+        if arq.is_file() and arq.stat().st_mtime < limite:
+            arq.unlink(missing_ok=True)
+
+
+def _guardar_upload(arquivo) -> Path:
+    """Deixa a planilha em ``FILE_UPLOAD_TEMP_DIR`` com nome próprio, para a thread
+    ler depois que a requisição terminar.
+
+    Upload grande já chegou em disco nessa mesma pasta: é só renomear, sem segunda
+    cópia. Antes, a cópia ia para o ``/tmp`` e o arquivo ocupava o dobro — num tmpfs
+    de 64 MB, uma planilha de 45 MB dava ``No space left on device`` e erro 500.
+    """
+    pasta = Path(settings.FILE_UPLOAD_TEMP_DIR)
+    pasta.mkdir(parents=True, exist_ok=True)
+    _apagar_sobras(pasta)
+    destino = pasta / f"carga-{uuid.uuid4().hex}.xlsx"
+    if hasattr(arquivo, "temporary_file_path"):
+        file_move_safe(arquivo.temporary_file_path(), str(destino))
+    else:
+        with destino.open("wb") as fh:
+            for pedaco in arquivo.chunks():
+                fh.write(pedaco)
+    return destino
+
+
 def iniciar_carga(arquivo, abas: str, substituir_mes: bool, usuario) -> CargaMensal:
-    """Salva o upload num arquivo temporário, cria o ``CargaMensal`` e dispara a
-    thread. Volta na hora — o progresso é lido da linha."""
-    tmp = tempfile.NamedTemporaryFile(prefix="carga-", suffix=".xlsx", delete=False)
-    for pedaco in arquivo.chunks():
-        tmp.write(pedaco)
-    tmp.close()
+    """Guarda o upload, cria o ``CargaMensal`` e dispara a thread. Volta na hora —
+    o progresso é lido da linha."""
+    caminho = _guardar_upload(arquivo)
 
     carga = CargaMensal.objects.create(
         arquivo_nome=arquivo.name, abas=abas, substituir_mes=substituir_mes,
         criado_por=usuario if usuario and usuario.is_authenticated else None,
     )
     threading.Thread(
-        target=_rodar, args=(carga.pk, tmp.name, _abas_lista(abas), substituir_mes),
+        target=_rodar, args=(carga.pk, str(caminho), _abas_lista(abas), substituir_mes),
         daemon=True,
     ).start()
     return carga

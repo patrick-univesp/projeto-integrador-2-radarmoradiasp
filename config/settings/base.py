@@ -100,6 +100,12 @@ DATABASES = {
     }
 }
 
+# Upload da planilha grava em disco, ao lado do banco, e não no /tmp: em produção o
+# /tmp é tmpfs de 64 MB (RAM), e uma planilha anual de ~45 MB não cabia. A carga
+# move esse mesmo arquivo em vez de copiar (radar/admin_carga.py). O diretório é
+# criado no startup (radar/apps.py) — o Django não cria sozinho.
+FILE_UPLOAD_TEMP_DIR = str(Path(DATABASES["default"]["NAME"]).parent / "uploads")
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},

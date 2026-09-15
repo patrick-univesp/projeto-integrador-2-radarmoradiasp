@@ -1,11 +1,13 @@
 """Tela de carga de planilha no admin: upload, validação, execução assíncrona."""
 
+import os
 import shutil
+import time
 from pathlib import Path
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.files.uploadedfile import SimpleUploadedFile, TemporaryUploadedFile
 from django.urls import reverse
 
 from radar import admin_carga
@@ -13,6 +15,13 @@ from radar.models import CargaMensal, Transacao
 
 XLSX = Path(__file__).parent / "dados" / "amostra_itbi.xlsx"
 URL = reverse("admin:radar_cargamensal_carregar")
+
+
+@pytest.fixture(autouse=True)
+def _pasta_de_upload(settings, tmp_path):
+    settings.FILE_UPLOAD_TEMP_DIR = str(tmp_path / "uploads")
+    (tmp_path / "uploads").mkdir()
+    return tmp_path / "uploads"
 
 
 @pytest.fixture
@@ -105,3 +114,51 @@ def test_exige_login(client):
     r = client.get(URL)
     assert r.status_code == 302
     assert "login" in r["Location"]
+
+
+@pytest.mark.django_db
+def test_upload_grande_vai_para_a_pasta_do_volume(admin_client, monkeypatch, settings,
+                                                   _pasta_de_upload):
+    """Planilha acima do limite de memória chega em disco. Tem de ficar na pasta do
+    volume (não no /tmp, tmpfs de 64 MB em produção) e ser renomeada, não copiada:
+    uma planilha de 45 MB copiada no /tmp não cabia e dava erro 500."""
+    settings.FILE_UPLOAD_MAX_MEMORY_SIZE = 0
+    disparos = []
+    monkeypatch.setattr(admin_carga.threading, "Thread",
+                        lambda **kw: type("T", (), {"start": lambda s: disparos.append(kw)})())
+
+    r = admin_client.post(URL, {"arquivo": _upload(), "substituir_mes": "on"})
+
+    assert r.status_code == 302
+    caminho = Path(disparos[0]["args"][1])
+    assert caminho.parent == _pasta_de_upload
+    assert caminho.read_bytes() == XLSX.read_bytes()
+    assert list(_pasta_de_upload.iterdir()) == [caminho]  # nenhuma segunda cópia
+
+
+def test_guardar_upload_em_disco_renomeia_sem_copiar(_pasta_de_upload):
+    arquivo = TemporaryUploadedFile("amostra_itbi.xlsx", "application/octet-stream",
+                                    XLSX.stat().st_size, None)
+    arquivo.write(XLSX.read_bytes())
+    arquivo.flush()
+    origem = Path(arquivo.temporary_file_path())
+
+    destino = admin_carga._guardar_upload(arquivo)
+    arquivo.close()  # o Django tenta apagar o temporário que já foi movido
+
+    assert not origem.exists()
+    assert destino.read_bytes() == XLSX.read_bytes()
+
+
+def test_guardar_upload_apaga_so_as_sobras_velhas(_pasta_de_upload):
+    velha = _pasta_de_upload / "carga-morta.xlsx"
+    recente = _pasta_de_upload / "tmpabc.upload.xlsx"
+    velha.write_bytes(b"x")
+    recente.write_bytes(b"x")
+    tres_horas = time.time() - 3 * 3600
+    os.utime(velha, (tres_horas, tres_horas))
+
+    admin_carga._guardar_upload(_upload())
+
+    assert not velha.exists()
+    assert recente.exists()

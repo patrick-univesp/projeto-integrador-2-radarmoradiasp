@@ -9,6 +9,7 @@ venv/
 *.sqlite3-*
 staticfiles/
 media/
+uploads/
 
 # Segredos: ignora qualquer .env, com excecao explicita do exemplo
 .env
