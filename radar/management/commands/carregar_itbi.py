@@ -26,6 +26,8 @@ from radar.regioes import slug_de_distrito
  C_CARTORIO, C_MATRIC, C_SITSQL, C_ATERR, C_TESTADA, C_FRACAO, C_ACONSTR,
  C_USOCOD, C_USODESC, C_PADRCOD, C_PADRDESC, C_ACC) = range(28)
 
+BLOCOS_PADRAO = 2000
+
 
 def _dec(x, *, obrigatorio=True):
     """``float`` → ``Decimal`` com 2 casas. ``None`` vira ``0.00`` num campo
@@ -186,7 +188,7 @@ def _gravar_mes(por_setor, ano_guia, mes_guia, cont, m, *, blocos, sem_geo,
             Transacao.objects.bulk_create(objetos[i:i + blocos], batch_size=blocos)
 
 
-def carregar(arquivo, abas=None, *, blocos=2000, limite=None, substituir_mes=False,
+def carregar(arquivo, abas=None, *, blocos=BLOCOS_PADRAO, limite=None, substituir_mes=False,
              limpar=False, dry_run=False, sem_geo=False, base_dir_geo=None, progresso=None):
     """Carga completa, **uma aba (um mês da guia) por vez**.
 
@@ -261,7 +263,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--arquivo", required=True)
         parser.add_argument("--abas", help="lista separada por vírgula (padrão: todas)")
-        parser.add_argument("--blocos", type=int, default=2000)
+        parser.add_argument("--blocos", type=int, default=BLOCOS_PADRAO)
         parser.add_argument("--limite", type=int, help="só as N primeiras linhas por aba")
         parser.add_argument("--limpar", action="store_true", help="apaga tudo antes")
         parser.add_argument("--substituir-mes", action="store_true",
