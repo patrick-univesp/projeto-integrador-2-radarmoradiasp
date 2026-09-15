@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block titulo %}Como funciona · Radar da Moradia SP{% endblock %}
+{% block descricao %}Da planilha de guias de ITBI ao mapa: o caminho de uma linha real, etapa por etapa, com os números da base inteira.{% endblock %}
+{% block og_titulo %}Como funciona · Radar da Moradia SP{% endblock %}
+{% block og_descricao %}O caminho de uma linha da planilha da Prefeitura até virar dado no mapa.{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/como_funciona.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+<div class="cf" data-como-funciona>
+
+  <section class="container cf-abertura" aria-labelledby="cf-titulo">
+    <p class="mono">Como funciona</p>
+    <h1 class="cf-abertura__titulo" id="cf-titulo">Da planilha da Prefeitura ao mapa, uma linha de cada vez</h1>
+    <p class="cf-abertura__lede">
+      Toda venda de imóvel em São Paulo paga um imposto, o ITBI, e cada guia paga vira uma linha numa
+      planilha pública. Esta página segue <strong>uma linha real</strong>, um apartamento na
+      {{ regiao.nome }} vendido em {{ trocas.4.depois }}, por todas as etapas até ela virar dado neste site.
+      As mesmas etapas rodaram nas outras {{ total }}.
+    </p>
+
+    <figure class="planilha">
+      <div class="planilha__rolagem" tabindex="0" role="region" aria-label="Trecho da planilha, rolável">
+        <table class="planilha__tabela">
+          <caption class="planilha__legenda">
+            Linha {{ linha_na_aba }} da aba {{ aba_exemplo }}, do jeito que o programa lê cada célula.
+          </caption>
+          <thead>
+            <tr class="planilha__letras" aria-hidden="true">
+              <th class="planilha__canto"></th>
+              {% for c in celulas %}<th>{{ c.letra }}</th>{% endfor %}
+            </tr>
+            <tr>
+              <th class="planilha__num" scope="col"><span class="visualmente-oculto">linha</span><span aria-hidden="true">1</span></th>
+              {% for c in celulas %}<th scope="col">{{ c.nome }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for n in linhas_vizinhas %}
+              <tr class="planilha__outra" aria-hidden="true">
+                <td class="planilha__num">{{ n }}</td>
+                {% for c in celulas %}<td><span class="planilha__risco"></span></td>{% endfor %}
+              </tr>
+            {% endfor %}
+            <tr class="planilha__exemplo">
+              <th class="planilha__num" scope="row">{{ linha_na_aba }}</th>
+              {% for c in celulas %}
+                <td class="{% if c.numero %}planilha__numero{% endif %}">{{ c.valor }}</td>
+              {% endfor %}
+            </tr>
+            {% for n in linhas_depois %}
+              <tr class="planilha__outra" aria-hidden="true">
+                <td class="planilha__num">{{ n }}</td>
+                {% for c in celulas %}<td><span class="planilha__risco"></span></td>{% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <ul class="planilha__abas" aria-label="Abas da planilha">
+        {% for m in meses %}
+          <li class="planilha__aba{% if m.exemplo %} planilha__aba--ativa{% endif %}">{{ m.aba }}</li>
+        {% endfor %}
+      </ul>
+      <figcaption class="planilha__nota">
+        A planilha tem 28 colunas. Aqui aparecem as 12 que mais mudam no caminho; as letras de cima são as do Excel.
+      </figcaption>
+    </figure>
+  </section>
+
+  <div class="container trilho">
+   <div class="trilho__linha" aria-hidden="true"><span class="trilho__pacote"></span></div>
+   <ol class="trilho__estacoes">
+
+    <li class="estacao" data-estacao>
+      <div class="estacao__marco" aria-hidden="true">1</div>
+      <div class="estacao__corpo">
+        <div class="estacao__texto">
+          <h2 class="estacao__titulo">A planilha chega, e é lida um mês por vez</h2>
+          <p>
+            O arquivo sobe pelo painel de administração, com até {{ tamanho_max_mb }} MB. O servidor não abre
+            a planilha inteira: lê linha por linha, e cada aba é um mês de guias. Um mês é lido, trabalhado e
+            gravado antes de o próximo começar, então anos de planilha cabem nos 600 MB de memória do servidor.
+          </p>
+          {% if carga %}
+            <p class="estacao__base">
+              Última carga: <strong>{{ carga.lidas }}</strong> linhas lidas em {{ carga.segundos }} segundos,
+              com pico de {{ carga.pico_mb }} MB de memória.
+            </p>
+          {% endif %}
+        </div>
+        <figure class="estacao__visual abas">
+          <ol class="abas__barras" data-escalonar>
+            {% for m in meses %}
+              <li class="abas__mes{% if m.exemplo %} abas__mes--exemplo{% endif %}">
+                <span class="abas__n">{{ m.n }}</span>
+                <svg class="abas__barra" aria-hidden="true"><rect class="abas__preenchimento" x="0" y="{{ m.topo }}%" width="100%" height="{{ m.altura }}%" /></svg>
+                <span class="abas__rotulo">{{ m.mes }}<span class="abas__ano">-{{ m.ano }}</span></span>
+              </li>
+            {% endfor %}
+          </ol>
+          <figcaption class="estacao__legenda">Linhas por aba, na base de hoje.</figcaption>
+        </figure>
+      </div>
+    </li>
+
+    <li class="estacao" data-estacao>
+      <div class="estacao__marco" aria-hidden="true">2</div>
+      <div class="estacao__corpo">
+        <div class="estacao__texto">
+          <h2 class="estacao__titulo">O número do cadastro ganha o zero de volta</h2>
+          <p>
+            Todo imóvel da cidade tem um número no cadastro do IPTU, o SQL: setor, quadra, lote e um dígito.
+            A planilha guarda esse número como número, e o Excel apaga o zero da frente. A carga põe o zero de
+            volta, e o SQL vira a chave de tudo que vem depois.
+          </p>
+          <p class="estacao__base">
+            Linha cujo SQL não fecha 11 dígitos é descartada e contada, nunca some em silêncio.
+            {% if carga %}Na última carga: <strong>{{ carga.descartadas }}</strong>.{% endif %}
+          </p>
+        </div>
+        <figure class="estacao__visual sql">
+          <p class="sql__antes"><span class="sql__rotulo">chega assim</span><span class="sql__valor">{{ sql_bruto }}</span></p>
+          <p class="sql__depois" data-escalonar aria-label="SQL {{ t.sql }}: setor {{ sql_partes.0.1 }}, quadra {{ sql_partes.1.1 }}, lote {{ sql_partes.2.1 }}, dígito {{ sql_partes.3.1 }}">
+            {% for nome, valor in sql_partes %}
+              <span class="sql__parte" aria-hidden="true">
+                <span class="sql__digitos">{% if forloop.first %}<span class="sql__zero">{{ valor|slice:":1" }}</span>{{ valor|slice:"1:" }}{% else %}{{ valor }}{% endif %}</span>
+                <span class="sql__nome">{{ nome }}</span>
+              </span>
+            {% endfor %}
+          </p>
+          <figcaption class="estacao__legenda">O zero marcado é o que o Excel tinha apagado.</figcaption>
+        </figure>
+      </div>
+    </li>
+
+    <li class="estacao" data-estacao>
+      <div class="estacao__marco" aria-hidden="true">3</div>
+      <div class="estacao__corpo">
+        <div class="estacao__texto">
+          <h2 class="estacao__titulo">As linhas do mês vão para {{ n_setores }} gavetas</h2>
+          <p>
+            Para achar cada imóvel no mapa, a carga consulta uma referência com os lotes da cidade inteira.
+            Aberta de uma vez, ela ocuparia uns 450 MB. Então as linhas são separadas pelos três primeiros
+            dígitos do SQL, o setor, e cada gaveta abre só o seu pedaço da referência: poucos MB por vez.
+          </p>
+          <p class="estacao__base">Nossa linha foi para a gaveta <strong>{{ setor_exemplo }}</strong>.</p>
+        </div>
+        <figure class="estacao__visual setores">
+          <ul class="setores__grade" data-escalonar aria-hidden="true">
+            {% for s in setores %}
+              <li class="setores__celula setores__celula--f{{ s.faixa }}{% if s.setor == setor_exemplo %} setores__celula--exemplo{% endif %}"
+                  title="setor {{ s.setor }}: {{ s.n }} transações"></li>
+            {% endfor %}
+          </ul>
+          <figcaption class="setores__legenda">
+            <span>Cada quadrado é um setor.</span>
+            <span class="setores__escala" aria-hidden="true">
+              menos vendas
+              <span class="setores__celula setores__celula--f1"></span>
+              <span class="setores__celula setores__celula--f2"></span>
+              <span class="setores__celula setores__celula--f3"></span>
+              <span class="setores__celula setores__celula--f4"></span>
+              <span class="setores__celula setores__celula--f5"></span>
+              mais
+            </span>
+          </figcaption>
+        </figure>
+      </div>
+    </li>
+
+    <li class="estacao" data-estacao>
+      <div class="estacao__marco" aria-hidden="true">4</div>
+      <div class="estacao__corpo">
+        <div class="estacao__texto">
+          <h2 class="estacao__titulo">Cada célula vira o tipo certo</h2>
+          <p>
+            As células chegam do jeito que o Excel guardou: número onde deveria haver texto, abreviação, um
+            campo com o conteúdo de outro. Aqui cada uma é convertida, e o texto é padronizado sem acento,
+            em caixa alta e com as abreviações por extenso.
+          </p>
+          <p class="estacao__base">
+            <strong>{{ bairro_lixo }}</strong> linhas traziam no campo bairro outra coisa, como torre, bloco
+            ou subsolo. O texto original fica guardado; só não vira sugestão de busca.
+          </p>
+        </div>
+        <div class="estacao__visual">
+          <dl class="trocas" data-escalonar>
+            {% for tr in trocas %}
+              <div class="trocas__item">
+                <dt class="trocas__campo">{{ tr.campo }}</dt>
+                <dd class="trocas__antes"><span class="visualmente-oculto">chega </span>{{ tr.antes }}</dd>
+                <dd class="trocas__depois">
+                  <span class="visualmente-oculto">vira </span>
+                  {% if tr.depois %}<span class="trocas__valor">{{ tr.depois }}</span>{% else %}<span class="trocas__valor trocas__valor--vazio">vazio</span>{% endif %}
+                  <span class="trocas__nota">{{ tr.nota }}</span>
+                </dd>
+              </div>
+            {% endfor %}
+          </dl>
+          <p class="grafias">
+            <span class="grafias__titulo">A mesma regra, em outras linhas:</span>
+            {% for antes, depois in grafias %}
+              <span class="grafias__par">{{ antes }} → {% if depois %}{{ depois }}{% else %}<em>vazio</em>{% endif %}</span>
+            {% endfor %}
+          </p>
+        </div>
+      </div>
+    </li>
+
+    <li class="estacao" data-estacao>
+      <div class="estacao__marco" aria-hidden="true">5</div>
+      <div class="estacao__corpo">
+        <div class="estacao__texto">
+          <h2 class="estacao__titulo">A conta do metro quadrado, e quando ela não é feita</h2>
+          <p>
+            O preço por metro quadrado é a base de cálculo do imposto dividida pela área construída. Só vale
+            quando a guia transfere o imóvel inteiro: se alguém comprou metade de um apartamento, dividir o
+            valor pela área toda daria um metro quadrado pela metade do preço.
+          </p>
+          <p class="estacao__base">
+            <strong>{{ com_rs_m2 }}</strong> linhas ganharam R$/m². As outras são terrenos, frações de imóvel ou
+            guias sem área, e ficam sem número: nunca com zero, que puxaria a mediana da região para baixo.
+          </p>
+        </div>
+        <div class="estacao__visual conta">
+          <div class="conta__uso">
+            <img src="{% static ilustracao_uso %}" alt="" width="96" height="96" loading="lazy">
+            <p>Uso <span class="conta__mono">{{ uso_cod }}</span> no IPTU vira <strong>{{ t.uso_grupo }}</strong></p>
+          </div>
+          <p class="conta__formula">
+            <span class="conta__termo"><span class="conta__rotulo">base de cálculo</span>R$&nbsp;{{ base_fmt }}</span>
+            <span class="conta__op" aria-label="dividido por">÷</span>
+            <span class="conta__termo"><span class="conta__rotulo">área construída</span>{{ area_fmt }}&nbsp;m²</span>
+            <span class="conta__igual">
+              <span class="conta__op" aria-label="igual a">=</span>
+              <span class="conta__termo conta__termo--resultado"><span class="conta__rotulo">por metro quadrado</span>R$&nbsp;{{ rs_m2_fmt }}</span>
+            </span>
+          </p>
+          <ul class="conta__travas">
+            <li class="conta__trava conta__trava--ok">
+              Proporção transmitida: {{ proporcao }}%. A conta só é feita com {{ proporcao_min }}% ou mais.
+            </li>
+            {% if rs_m2_metade is None %}
+              <li class="conta__trava conta__trava--nao">
+                Se a guia fosse de metade do apartamento, o campo ficaria vazio.
+              </li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+    </li>
+
+    <li class="estacao" data-estacao>
+      <div class="estacao__marco" aria-hidden="true">6</div>
+      <div class="estacao__corpo">
+        <div class="estacao__texto">
+          <h2 class="estacao__titulo">Uma escada para achar o ponto no mapa</h2>
+          <p>
+            Com a gaveta do setor aberta, a carga procura o imóvel do jeito mais preciso para o menos preciso,
+            e para no primeiro degrau que dá certo. Nenhum mapa é consultado na internet: tudo sai da
+            referência que já está no servidor.
+          </p>
+          <p class="estacao__base">
+            Nossa linha parou no segundo degrau. No cadastro de lotes, o prédio inteiro é um lote só; o
+            apartamento só existe pelo endereço. Ponto: <span class="conta__mono">{{ coordenada }}</span>,
+            distrito {{ regiao.nome }}.
+          </p>
+        </div>
+        <figure class="estacao__visual">
+          <ol class="escada" data-escalonar>
+            {% for d in degraus %}
+              <li class="escada__degrau escada__degrau--{{ d.estado }}">
+                <span class="escada__marca" aria-hidden="true"></span>
+                <span class="escada__rotulo">
+                  {{ d.rotulo }}
+                  {% if d.estado == "achou" %}<span class="escada__selo">esta linha</span>{% endif %}
+                </span>
+                <svg class="escada__barra" aria-hidden="true"><rect class="escada__preenchimento" x="0" y="0" width="{{ d.largura }}%" height="100%" /></svg>
+                <span class="escada__n">{{ d.n }} <span class="escada__pct">{{ d.pct }}</span></span>
+              </li>
+            {% endfor %}
+          </ol>
+          <figcaption class="estacao__legenda">Onde cada linha da base parou. As sem ponto entram no banco; só não aparecem no mapa.</figcaption>
+        </figure>
+      </div>
+    </li>
+
+    <li class="estacao" data-estacao>
+      <div class="estacao__marco" aria-hidden="true">7</div>
+      <div class="estacao__corpo">
+        <div class="estacao__texto">
+          <h2 class="estacao__titulo">Seis testes, seis luzes</h2>
+          <p>
+            Antes de gravar, seis testes procuram sinais de linha com defeito. Cada teste que falha acende uma
+            luz, e cada luz vale uma potência de dois. A soma vira um número só: <strong>0</strong> quer dizer
+            que nada acendeu. Linha com qualquer luz acesa é gravada, mas fica fora da mediana.
+          </p>
+          <p class="estacao__base">
+            Nossa linha passou nos seis. Na base, <strong>{{ com_ressalva }}</strong> linhas ({{ com_ressalva_pct }})
+            acenderam pelo menos uma luz.
+          </p>
+        </div>
+        <div class="estacao__visual luzes" data-luzes>
+          <p class="luzes__instrucao" data-luzes-instrucao hidden>Toque nas luzes para ver o número que seria gravado.</p>
+          <ul class="luzes__lista">
+            {% for b in bits %}
+              <li>
+                <button type="button" class="luz" aria-pressed="false" data-bit="{{ b.bit }}" data-ressalva="{{ b.ressalva }}" disabled>
+                  <span class="luz__lampada" aria-hidden="true"></span>
+                  <span class="luz__rotulo">{{ b.rotulo }}</span>
+                  <span class="luz__valor">vale {{ b.bit }}</span>
+                  <span class="luz__n">{{ b.n }} na base</span>
+                </button>
+              </li>
+            {% endfor %}
+          </ul>
+          <div class="luzes__resultado" aria-live="polite">
+            <p class="luzes__numero">
+              qualidade = <output data-luzes-soma>0</output>
+              <span class="luzes__binario" data-luzes-binario aria-hidden="true">000000</span>
+            </p>
+            <p class="luzes__veredito" data-luzes-veredito>Nada acendeu: entra na mediana.</p>
+          </div>
+        </div>
+      </div>
+    </li>
+
+    <li class="estacao" data-estacao>
+      <div class="estacao__marco" aria-hidden="true">8</div>
+      <div class="estacao__corpo">
+        <div class="estacao__texto">
+          <h2 class="estacao__titulo">O mês entra inteiro, ou não entra</h2>
+          <p>
+            A gravação é uma transação só para o mês todo: apaga o que já havia daquele mês e insere tudo de
+            novo, em blocos de {{ blocos }} linhas. Se o servidor cair no meio, o banco volta a ser o que era.
+            Por isso reenviar a mesma planilha não duplica nada.
+          </p>
+          <p class="estacao__base">
+            A parte demorada, achar o ponto no mapa, acontece antes e fora da transação: o banco fica travado
+            só pelo tempo de gravar, e o site continua respondendo durante a carga.
+          </p>
+        </div>
+        <figure class="estacao__visual gravacao">
+          <p class="gravacao__passo gravacao__passo--apaga"><span class="gravacao__aba">{{ aba_exemplo }}</span> apaga o mês que estava no banco</p>
+          <ol class="gravacao__blocos" data-escalonar aria-label="{{ n_blocos }} blocos">
+            {% for i in blocos_desenhados %}
+              <li class="gravacao__bloco"></li>
+            {% endfor %}
+          </ol>
+          <p class="gravacao__passo">{{ n_mes_exemplo }} linhas em {{ n_blocos }} blocos</p>
+          <p class="gravacao__carimbo">confirmado</p>
+        </figure>
+      </div>
+    </li>
+   </ol>
+  </div>
+
+  <section class="container fim" aria-labelledby="fim-titulo">
+    <div class="fim__cartao">
+      <img class="fim__ilustracao" src="{% static ilustracao_uso %}" alt="" width="96" height="96" loading="lazy">
+      <div>
+        <h2 class="fim__titulo" id="fim-titulo">Fim da linha</h2>
+        <p class="fim__endereco">{{ t.logradouro }}, {{ t.numero }} · {{ regiao.nome }}</p>
+        <p class="fim__valor">R$&nbsp;{{ valor_fmt }}</p>
+        <p class="fim__detalhe">R$&nbsp;{{ rs_m2_fmt }} por m² · {{ t.uso_grupo }} · {{ trocas.4.depois }}</p>
+      </div>
+    </div>
+    <p class="fim__texto">
+      A linha {{ linha_na_aba }} agora é uma transação com endereço, ponto no mapa, preço por metro quadrado e selo de
+      qualidade. Somada às vizinhas, ela ajuda a formar o preço típico da {{ regiao.nome }}.
+    </p>
+    <a class="fim__acao" href="{% url 'radar:regiao' regiao.slug %}">Ver os preços da {{ regiao.nome }}</a>
+
+    <figure class="funil">
+      <figcaption class="funil__titulo">A base inteira, depois das oito etapas</figcaption>
+      <ul class="funil__lista">
+        {% for f in funil %}
+          <li class="funil__item">
+            <span class="funil__rotulo">{{ f.rotulo }}</span>
+            <svg class="funil__barra" aria-hidden="true"><rect class="funil__preenchimento" x="0" y="0" width="{{ f.largura }}%" height="100%" /></svg>
+            <span class="funil__n">{{ f.n }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </figure>
+  </section>
+</div>
+{% endblock %}
+
+{% block js %}
+  <script src="{% static 'js/como_funciona.js' %}" defer></script>
+{% endblock %}

@@ -38,6 +38,7 @@
         Radar da Moradia SP
       </a>
       <div class="topo__acoes">
+        <a class="topo__link" href="{% url 'radar:como_funciona' %}">Como funciona</a>
         <a class="topo__botao" href="{% url 'radar:entrar' %}">Entrar</a>
       </div>
     </div>
@@ -50,6 +51,7 @@
   <footer class="rodape">
     <div class="container rodape__linha">
       <span>Projeto Integrador em Computação 2 · UNIVESP</span>
+      <a href="{% url 'radar:como_funciona' %}">Como o dado chega aqui</a>
     </div>
   </footer>
   {% block js %}{% endblock %}

@@ -7,8 +7,11 @@ from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django_ratelimit.decorators import ratelimit
 
+from radar import como_funciona as cf
+from radar.admin_carga import TAMANHO_MAX_MB
 from radar.buscas import sugerir_regioes
-from radar.carga.mineracao import cod_natureza
+from radar.carga.mineracao import PROPORCAO_MIN_METRICA, cod_natureza, rs_m2_construido
+from radar.carga.normalizacao import normalizar, normalizar_bairro
 from radar.estatisticas import estatisticas_regiao, serie_mensal, transacoes_da_regiao
 from radar.models import Transacao
 from radar.regioes import APELIDOS, POR_SLUG
@@ -635,6 +638,182 @@ def sugestoes(request):
         return JsonResponse({"sugestoes": []}, status=429)
     termo = request.GET.get("q", "")
     return JsonResponse({"sugestoes": sugerir_regioes(termo)})
+
+
+_MES_ABREV = ("JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ")
+
+QUALIDADE_ROTULOS = {
+    1: "colunas deslocadas",
+    2: "base de cálculo não fecha",
+    4: "valor irrisório",
+    8: "financiado maior que o valor",
+    16: "data implausível",
+    32: "cadastro cancelado",
+}
+
+# Grafias de verdade que a normalização resolve, mostradas ao lado da linha de
+# exemplo. Passam pela função na hora: se a regra mudar, o exemplo muda junto.
+GRAFIAS_EXEMPLO = ("VL FORMOSA", "ITAIMBIBI", "STO AMARO", "2 SUBSOLO")
+
+# Máximo de blocos desenhados na etapa de gravação; acima disso o desenho
+# perde a leitura e o texto já diz o número.
+BLOCOS_DESENHADOS_MAX = 16
+
+
+def _milhar(n):
+    return f"{n:,}".replace(",", ".")
+
+
+def _pct(n, total):
+    return f"{n / total * 100:.1f}".replace(".", ",") + "%" if total else "0%"
+
+
+def _faixas_setores(setores):
+    """Cada setor numa das cinco faixas da rampa, por quintil de transações."""
+    if not setores:
+        return []
+    contagens = sorted(n for _, n in setores)
+    cortes = [contagens[len(contagens) * q // 5] for q in (1, 2, 3, 4)]
+    return [
+        {"setor": s, "n": _milhar(n), "faixa": 1 + sum(n >= c for c in cortes)}
+        for s, n in setores
+    ]
+
+
+def como_funciona(request):
+    """Uma linha real da planilha atravessando a carga, etapa por etapa, com os
+    números da base inteira ao lado. Dados em ``radar/como_funciona.py``."""
+    t = cf.transacao_exemplo()
+    bruta = cf.LINHA_EXEMPLO
+    base = cf.numeros_da_base()
+    total = base["total"]
+
+    maior_mes = max((n for _, _, n in base["por_mes"]), default=0)
+    meses = [
+        {
+            "aba": f"{_MES_ABREV[m - 1]}-{a}",
+            "mes": _MES_ABREV[m - 1],
+            "ano": a,
+            "n": _milhar(n),
+            "altura": round(n / maior_mes * 100) if maior_mes else 0,
+            "topo": 100 - (round(n / maior_mes * 100) if maior_mes else 0),
+            "exemplo": (a, m) == (t.ano_guia, t.mes_guia),
+        }
+        for a, m, n in base["por_mes"]
+    ]
+    n_mes_exemplo = next(
+        (n for a, m, n in base["por_mes"] if (a, m) == (t.ano_guia, t.mes_guia)), 0
+    )
+    n_blocos = -(-n_mes_exemplo // base["blocos"])
+
+    niveis = ("T1", "T2", "T3", "T4", "--")
+    maior_geo = max((base["por_geo"].get(g, 0) for g in niveis), default=0)
+    passou = False
+    degraus = []
+    for g in niveis:
+        rotulo, descricao = PRECISAO_GEO.get(g, PRECISAO_GEO_PADRAO)
+        n = base["por_geo"].get(g, 0)
+        atual = g == t.geo_nivel
+        degraus.append({
+            "rotulo": rotulo,
+            "descricao": descricao,
+            "n": _milhar(n),
+            "pct": _pct(n, total),
+            "largura": round(n / maior_geo * 100) if maior_geo else 0,
+            "estado": "achou" if atual else ("depois" if passou else "tentou"),
+        })
+        passou = passou or atual
+
+    def _bruto(v):
+        return v.isoformat(sep=" ") if hasattr(v, "isoformat") else str(v)
+
+    celulas = [
+        {"letra": letra, "nome": nome, "valor": _bruto(bruta[i]),
+         "numero": isinstance(bruta[i], (int, float))}
+        for letra, nome, i in cf.COLUNAS_EXEMPLO
+    ]
+
+    data = t.data_transacao
+    trocas = [
+        {"campo": "Logradouro, para achar no mapa", "antes": bruta[cf.C_LOGR],
+         "depois": normalizar(bruta[cf.C_LOGR]), "nota": "abreviação por extenso"},
+        {"campo": "CEP", "antes": str(bruta[cf.C_CEP]), "depois": f"{t.cep[:5]}-{t.cep[5:]}",
+         "nota": "o zero da frente volta"},
+        {"campo": "Bairro", "antes": bruta[cf.C_BAIRRO], "depois": t.bairro_norm,
+         "nota": "é a torre do prédio, não um bairro"},
+        {"campo": "Natureza", "antes": bruta[cf.C_NATUREZA], "depois": _sem_prefixo_numerico(t.natureza),
+         "nota": f"código {cod_natureza(t.natureza)}"},
+        {"campo": "Data do negócio", "antes": _bruto(bruta[cf.C_DATA]),
+         "depois": f"{_MESES[data.month - 1]} de {data.year}",
+         "nota": f"a guia foi paga em {_MESES[t.mes_guia - 1]} de {t.ano_guia}"},
+    ]
+
+    regiao = POR_SLUG.get(t.distrito_slug)
+    funil = [
+        ("gravadas", total),
+        ("com ponto no mapa", base["com_ponto"]),
+        ("com ponto e sem ressalva", base["com_ponto_sem_ressalva"]),
+    ]
+
+    return render(
+        request,
+        "radar/como_funciona.html",
+        {
+            "t": t,
+            "total": _milhar(total),
+            "aba_exemplo": cf.ABA_EXEMPLO,
+            "linha_na_aba": cf.LINHA_EXEMPLO_NA_ABA,
+            "linhas_vizinhas": (cf.LINHA_EXEMPLO_NA_ABA - 2, cf.LINHA_EXEMPLO_NA_ABA - 1),
+            "linhas_depois": (cf.LINHA_EXEMPLO_NA_ABA + 1, cf.LINHA_EXEMPLO_NA_ABA + 2),
+            "celulas": celulas,
+            "meses": meses,
+            "carga": base["carga"] and {
+                **base["carga"],
+                "lidas": _milhar(base["carga"]["lidas"]),
+                "descartadas": _milhar(base["carga"]["descartadas"]),
+            },
+            "tamanho_max_mb": TAMANHO_MAX_MB,
+            "sql_bruto": str(bruta[cf.C_SQL]),
+            "sql_partes": [
+                ("setor", t.sql[:3]), ("quadra", t.sql[3:6]),
+                ("lote", t.sql[6:10]), ("dígito", t.sql[10]),
+            ],
+            "n_setores": len(base["setores"]),
+            "setores": _faixas_setores(base["setores"]),
+            "setor_exemplo": t.sql[:3],
+            "trocas": trocas,
+            "grafias": [(g, normalizar_bairro(g)) for g in GRAFIAS_EXEMPLO],
+            "bairro_lixo": _milhar(base["bairro_lixo"]),
+            "valor_fmt": _formatar_rs(t.valor_transacao),
+            "base_fmt": _formatar_rs(t.base_calculo),
+            "area_fmt": _formatar_rs(t.area_construida),
+            "proporcao": bruta[cf.C_PROP],
+            "proporcao_min": _formatar_rs(PROPORCAO_MIN_METRICA),
+            "rs_m2_fmt": _formatar_rs(t.rs_m2_construido),
+            "rs_m2_metade": rs_m2_construido(float(t.base_calculo), float(t.area_construida), 50),
+            "uso_cod": bruta[cf.C_USOCOD],
+            "ilustracao_uso": f"img/uso/{SLUG_ILUSTRACAO_USO[t.uso_grupo]}-192.webp",
+            "com_rs_m2": _milhar(base["com_rs_m2"]),
+            "degraus": degraus,
+            "coordenada": f"{t.lat:.5f}, {t.lon:.5f}".replace(".", ","),
+            "regiao": regiao,
+            "bits": [
+                {"bit": b, "rotulo": QUALIDADE_ROTULOS[b], "ressalva": msg,
+                 "n": _milhar(base["por_bit"][b])}
+                for b, msg in QUALIDADE_RESSALVAS.items()
+            ],
+            "com_ressalva": _milhar(base["com_ressalva"]),
+            "com_ressalva_pct": _pct(base["com_ressalva"], total),
+            "n_mes_exemplo": _milhar(n_mes_exemplo),
+            "blocos": _milhar(base["blocos"]),
+            "n_blocos": n_blocos,
+            "blocos_desenhados": range(min(n_blocos, BLOCOS_DESENHADOS_MAX)),
+            "funil": [
+                {"rotulo": r, "n": _milhar(n), "largura": round(n / total * 100) if total else 0}
+                for r, n in funil
+            ],
+        },
+    )
 
 
 def entrar(request):
