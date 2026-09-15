@@ -77,7 +77,7 @@ tomar `database is locked`. Fora, o lock dura só o delete mais os inserts.
 ## Upload pelo admin
 
 No `/admin/`, **Cargas mensais → Carregar planilha**: envia o `.xlsx` (limite
-50 MB), a view salva num arquivo temporário,
+50 MB), a view guarda o arquivo na pasta de upload,
 cria um registro **`CargaMensal`** e dispara `carregar()` numa `threading.Thread`.
 Volta na hora; o progresso (linhas gravadas, `qualidade!=0`, sem geo, pico de
 memória) aparece na linha do `CargaMensal`, que é só-leitura.
@@ -92,6 +92,13 @@ flowchart LR
     C -. em segundo plano .-> W["carregar() → atualiza a linha<br/>concluido / erro"]
 ```
 
+- **O arquivo nunca passa pelo `/tmp`.** Em produção o `/tmp` é um tmpfs de 64 MB (RAM).
+  O Django grava o upload em `FILE_UPLOAD_TEMP_DIR` = `uploads/` **ao lado do banco**
+  (no volume, `/app/data/uploads`), e a carga **renomeia** esse mesmo arquivo em vez de
+  copiá-lo. Antes, upload e cópia iam os dois para o `/tmp`: uma planilha anual de
+  45 MB precisava de 90 MB ali e a tela devolvia erro 500. A pasta é criada no startup
+  (`radar/apps.py`); arquivo esquecido nela há mais de 2 h (carga que morreu no meio)
+  é apagado quando a próxima carga começa.
 - **Uma carga por vez.** Uma linha em `rodando` há mais de 2 h conta como morta
   (thread/processo derrubado) e não bloqueia.
 - **`--substituir-mes` é o padrão** da tela — reenviar a planilha do mês seguinte
@@ -128,7 +135,13 @@ correspondência na referência). A cauda está no mês mais recente — a refer
 gerada de um _crawl_ que ia até jun/2026, então quadras que só transacionaram em
 julho ainda não estão nela. `scripts/prefetch_geo.py --refresh <setor>:<quadra>,...`
 preenche. As linhas `--` **entram no banco** (não são puladas) — só não têm ponto no
-mapa.
+mapa, e também não entram na conta de nenhuma região (sem distrito).
+
+**Planilha de outro ano:** a de 2025 (230.525 linhas) dava **10,7% `--`** contra a
+referência do bootstrap, montada a partir das quadras de 2026; depois de um
+`--refresh`, **0,55%**. A de 2026 foi de 1,7% para 0,32%. Antes de
+carregar um ano novo, complete a referência — o passo a passo, e o que o `--refresh`
+não muda, está em [`referencia-geo.md`](referencia-geo.md#completar-a-referência-para-uma-planilha-nova).
 
 ---
 
@@ -156,6 +169,12 @@ fixture, recorte também `radar/dados_geo/` para os setores dos SQLs escolhidos.
 As abas podem ser de qualquer ano (`JAN-2025`, `MAR-2024`, …) — o nome da aba
 (`MMM-YYYY`) é a única fonte de `ano_guia`/`mes_guia`. `--substituir-mes` recarrega
 um mês sem tocar nos outros anos.
+
+**A planilha de 2025** (extração de 28/01/2026, 12 abas, 44,5 MB) foi conferida: as
+28 colunas estão na **mesma ordem e com os mesmos cabeçalhos** da de 2026 em todas as
+abas; `ABR`, `JUN`, `SET` e `NOV` trazem uma 29ª coluna vazia, o mesmo caso da
+`FEV-2026`, que a leitura por posição já absorve. Um `--dry-run` leu 230.525 linhas,
+zero descartadas, `lidas` batendo com cada aba, pico de 166 MB.
 
 O resumo traz `por_mes` — lidas / gravadas / descartadas / `qual!=0` / sem geo por
 mês da guia — para bater com a contagem de cada aba da planilha e entender uma
