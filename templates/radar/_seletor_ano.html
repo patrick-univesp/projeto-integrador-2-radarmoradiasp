@@ -1,21 +1,15 @@
 {% comment %}
-Escolha do período, reusada pela região e pela comparação. Contexto: anos, ano e
-os campos que precisam atravessar o envio (ordenar na região; a e b na comparação).
-Funciona sem JavaScript: o botão envia o formulário.
+Escolha do período, reusada pela região, pela comparação e pelo mapa. Contexto:
+periodos (lista de {rotulo, url, atual}, montada por views._opcoes_de_periodo).
+Cada opção é um link: um toque troca o período, sem botão de confirmar e sem JS.
 {% endcomment %}
-{% if anos %}
-  <form class="periodo" method="get">
-    {% if ordenar %}<input type="hidden" name="ordenar" value="{{ ordenar }}">{% endif %}
-    {% if a %}<input type="hidden" name="a" value="{{ a }}">{% endif %}
-    {% if b %}<input type="hidden" name="b" value="{{ b }}">{% endif %}
-    <label class="periodo__rotulo" for="periodo-ano">período</label>
-    <select class="periodo__campo" id="periodo-ano" name="ano">
-      <option value="" {% if not ano %}selected{% endif %}>últimos 12 meses</option>
-      {% for opcao in anos %}
-        <option value="{{ opcao }}" {% if opcao == ano %}selected{% endif %}>{{ opcao }}</option>
+{% if periodos|length > 1 %}
+  <nav class="periodo" aria-label="Período">
+    <ul class="periodo__opcoes">
+      {% for p in periodos %}
+        <li><a class="periodo__opcao" href="{{ p.url }}"{% if p.atual %} aria-current="true"{% endif %}>{{ p.rotulo }}</a></li>
       {% endfor %}
-    </select>
-    <button class="periodo__botao" type="submit">Ver</button>
+    </ul>
     <p class="periodo__nota">Valores em reais de cada época, sem correção pela inflação.</p>
-  </form>
+  </nav>
 {% endif %}

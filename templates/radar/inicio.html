@@ -46,6 +46,8 @@ css/transicao.css é só da transição cinematográfica, desligada por enquanto
         <ul id="sugestoes-lista" class="sugestoes" role="listbox" aria-label="Sugestões de região" hidden></ul>
       </form>
 
+      <p class="hero__mapa"><a href="{% url 'radar:mapa' %}">Ver todos os distritos no mapa de São Paulo →</a></p>
+
       {% if periodo %}
         <p class="hero__base">
           <strong data-contador="{{ n_vendas }}">{{ total_vendas }}</strong> transações reais, de {{ periodo }}.

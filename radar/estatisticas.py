@@ -253,3 +253,34 @@ def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None, an
             "fraco": len(valores) < LIMIAR_MES_FRACO,
         })
     return serie, data_min
+
+
+def inicio_da_janela_da_cidade(ano_guia, mes_guia):
+    """1º dia da janela comum a todos os distritos: os 12 meses que terminam no último
+    mês de guia carregado. Comum de propósito — no mapa da cidade os distritos são
+    comparados entre si, e cada um com a própria janela (como na página da região)
+    seria comparar períodos diferentes."""
+    return dt.date(*_meses_atras(ano_guia, mes_guia, JANELA_MESES_PADRAO - 1), 1)
+
+
+def valor_tipico_por_distrito(queryset, *, data_min=None, ano=None):
+    """Mediana de R$/m² de cada distrito, com o mesmo filtro da região (qualidade,
+    uso residencial, só natureza de mercado), numa janela única para todos:
+    ``ano`` inteiro ou a partir de ``data_min``. Uma consulta só e a mediana em
+    Python, em vez de uma consulta por distrito."""
+    base = _so_mercado(
+        queryset.filter(qualidade=0, uso_grupo__in=USO_GRUPO_RESIDENCIAL, rs_m2_construido__isnull=False)
+        .exclude(distrito_slug="")
+    )
+    if ano is not None:
+        base = base.filter(ano_transacao=ano)
+    elif data_min is not None:
+        base = _na_janela(base, data_min)
+
+    por_distrito = defaultdict(list)
+    for slug, rs_m2 in base.values_list("distrito_slug", "rs_m2_construido"):
+        por_distrito[slug].append(rs_m2)
+    return {
+        slug: {"mediana_rs_m2": statistics.median(v), "n_com_metrica": len(v), "confianca": _confianca(len(v))}
+        for slug, v in por_distrito.items()
+    }

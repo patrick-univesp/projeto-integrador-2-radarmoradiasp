@@ -14,7 +14,15 @@ from radar.admin_carga import TAMANHO_MAX_MB
 from radar.buscas import nome_de_rua, sugerir
 from radar.carga.mineracao import PROPORCAO_MIN_METRICA, cod_natureza, rs_m2_construido
 from radar.carga.normalizacao import normalizar, normalizar_bairro, normalizar_logradouro
-from radar.estatisticas import estatisticas_regiao, serie_mensal, transacoes_da_regiao
+from radar.estatisticas import (
+    CONFIANCA_INSUFICIENTE,
+    estatisticas_regiao,
+    inicio_da_janela_da_cidade,
+    serie_mensal,
+    transacoes_da_regiao,
+    valor_tipico_por_distrito,
+)
+from radar.memoria import memorizado
 from radar.models import Transacao
 from radar.regioes import APELIDOS, POR_SLUG
 
@@ -195,6 +203,27 @@ def _ano_pedido(request):
     except ValueError:
         return None
     return ano if ano in _anos_disponiveis() else None
+
+
+def _opcoes_de_periodo(request, ano):
+    """Os botões de período ("últimos 12 meses", 2026, 2025…), cada um um link para a
+    mesma página com os outros parâmetros preservados (ordenação, regiões comparadas)
+    e a paginação zerada. Link, e não formulário: um toque troca, e funciona sem JS."""
+    opcoes = []
+    for valor in [None, *_anos_disponiveis()]:
+        q = request.GET.copy()
+        q.pop("pagina", None)
+        if valor is None:
+            q.pop("ano", None)
+        else:
+            q["ano"] = str(valor)
+        qs = q.urlencode()
+        opcoes.append({
+            "rotulo": "últimos 12 meses" if valor is None else str(valor),
+            "url": f"{request.path}?{qs}" if qs else request.path,
+            "atual": valor == ano,
+        })
+    return opcoes
 
 
 def _formatar_rs(valor):
@@ -490,7 +519,7 @@ def regiao(request, slug):
             "pagina": pagina,
             "ordenar": ordenar,
             "ano": ano,
-            "anos": _anos_disponiveis(),
+            "periodos": _opcoes_de_periodo(request, ano),
             "filtro_qs": f"ano={ano}&" if ano else "",
             "transacoes_vazio_texto": f"Nenhuma transação encontrada com estes critérios em {r.nome}.",
         },
@@ -576,7 +605,7 @@ def comparar(request):
             "diferenca": diferenca,
             "confianca_baixa": stats_a["confianca"] != "ok" or stats_b["confianca"] != "ok",
             "ano": ano,
-            "anos": _anos_disponiveis(),
+            "periodos": _opcoes_de_periodo(request, ano),
         },
     )
 
@@ -887,3 +916,108 @@ def como_funciona(request):
             ],
         },
     )
+
+
+# Cinco faixas de cor no mapa da cidade, por quintil entre os distritos com vendas
+# suficientes: com faixas de largura fixa, os poucos distritos muito caros esticariam a
+# escala e quase todo o resto cairia na primeira cor.
+FAIXAS_MAPA = 5
+
+
+def _dados_do_mapa(ano):
+    """Valor típico de cada um dos 96 distritos na mesma janela, a faixa de cor de cada
+    um e os limites das faixas para a legenda. Caro (uma passada sobre as vendas do
+    período): fica em memória (radar/memoria.py)."""
+    if ano is None:
+        ultima = (
+            Transacao.objects.exclude(ano_guia=None).exclude(mes_guia=None)
+            .order_by("-ano_guia", "-mes_guia").values_list("ano_guia", "mes_guia").first()
+        )
+        if ultima is None:
+            return {"periodo": "", "distritos": [], "legenda": []}
+        data_min = inicio_da_janela_da_cidade(*ultima)
+        periodo = _rotular_periodo(data_min.year, data_min.month, *ultima)
+        por_slug = valor_tipico_por_distrito(Transacao.objects.all(), data_min=data_min)
+    else:
+        periodo = str(ano)
+        por_slug = valor_tipico_por_distrito(Transacao.objects.all(), ano=ano)
+
+    medianas = sorted(
+        v["mediana_rs_m2"] for v in por_slug.values() if v["confianca"] != CONFIANCA_INSUFICIENTE
+    )
+    cortes = (
+        [medianas[len(medianas) * k // FAIXAS_MAPA] for k in range(1, FAIXAS_MAPA)] if medianas else []
+    )
+
+    distritos = []
+    for r in sorted(POR_SLUG.values(), key=lambda r: r.nome):
+        v = por_slug.get(r.slug, {"mediana_rs_m2": None, "n_com_metrica": 0, "confianca": CONFIANCA_INSUFICIENTE})
+        suficiente = v["confianca"] != CONFIANCA_INSUFICIENTE
+        distritos.append({
+            "slug": r.slug,
+            "nome": r.nome,
+            "distrito": r.distrito,
+            "url": reverse("radar:regiao", args=[r.slug]),
+            "mediana_fmt": _formatar_rs(v["mediana_rs_m2"]) if suficiente else None,
+            "mediana": float(v["mediana_rs_m2"]) if suficiente else None,
+            "n": v["n_com_metrica"],
+            "faixa": 1 + sum(v["mediana_rs_m2"] >= c for c in cortes) if suficiente else 0,
+        })
+
+    limites = [None, *cortes, None]
+    legenda = [
+        {"faixa": k + 1, "de": _formatar_rs(limites[k]), "ate": _formatar_rs(limites[k + 1])}
+        for k in range(FAIXAS_MAPA)
+    ] if cortes else []
+    return {"periodo": periodo, "distritos": distritos, "legenda": legenda}
+
+
+def _mapa_em_cache(ano):
+    return memorizado(f"mapa:{ano or 'ultimos-12'}", lambda: _dados_do_mapa(ano))
+
+
+@ratelimit(key="ip", rate=TAXA_CONSULTA, block=False)
+def mapa(request):
+    """O valor típico de cada distrito no mapa da cidade, com a mesma janela de tempo
+    para todos, e a lista dos 96 do mais caro ao mais barato (que é também o que o mapa
+    mostra para quem não o enxerga)."""
+    if request.limited:
+        return render(request, "429.html", status=429)
+    ano = _ano_pedido(request)
+    dados = _mapa_em_cache(ano)
+    ranking = sorted(
+        (d for d in dados["distritos"] if d["mediana"] is not None), key=lambda d: d["mediana"], reverse=True
+    )
+    maior = ranking[0]["mediana"] if ranking else 0
+    # String com ponto, não float: o template localiza número (vírgula) e o atributo
+    # width do SVG não aceita "40,5%".
+    # No ranking o valor vai sem centavos e com largura fixa: com "R$ 6.384" ao lado de
+    # "R$ 6.384,50", a coluna do valor mudaria de largura e as barras sairiam da régua.
+    ranking = [
+        {**d, "largura": f"{d['mediana'] / maior * 100:.1f}",
+         "valor_fmt": f"{round(d['mediana']):,}".replace(",", "."),
+         "n_fmt": f"{d['n']:,}".replace(",", ".")}
+        for d in ranking
+    ]
+    return render(
+        request,
+        "radar/mapa.html",
+        {
+            "ano": ano,
+            "periodos": _opcoes_de_periodo(request, ano),
+            "periodo": dados["periodo"],
+            "legenda": dados["legenda"],
+            "ranking": ranking,
+            "sem_valor": [d for d in dados["distritos"] if d["mediana"] is None],
+        },
+    )
+
+
+@ratelimit(key="ip", rate=TAXA_CONSULTA, block=False)
+def mapa_dados(request):
+    """O mesmo dado da página do mapa, para o JavaScript pintar os distritos."""
+    if request.limited:
+        return JsonResponse({"distritos": []}, status=429)
+    dados = _mapa_em_cache(_ano_pedido(request))
+    return JsonResponse({"distritos": dados["distritos"]})
+

@@ -15,4 +15,6 @@ urlpatterns = [
     path("rua/", views.rua, name="rua"),
     path("transacao/<int:id>/", views.transacao, name="transacao"),
     path("como-funciona/", views.como_funciona, name="como_funciona"),
+    path("mapa/", views.mapa, name="mapa"),
+    path("mapa/distritos.json", views.mapa_dados, name="mapa_dados"),
 ]

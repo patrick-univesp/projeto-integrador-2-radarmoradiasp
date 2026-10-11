@@ -443,3 +443,24 @@ def test_serie_do_ano_so_tem_meses_do_ano():
     serie, _ = serie_mensal(Transacao.objects.all(), ano=2025)
     assert (serie[0]["ano"], serie[0]["mes"]) == (2025, 3)
     assert (serie[-1]["ano"], serie[-1]["mes"]) == (2025, 11)
+
+
+# --- valor típico por distrito (mapa da cidade) ---------------------------------
+
+
+@pytest.mark.django_db
+def test_valor_tipico_por_distrito_usa_a_mesma_janela_e_o_mesmo_filtro():
+    from radar.estatisticas import inicio_da_janela_da_cidade, valor_tipico_por_distrito
+
+    for _ in range(10):
+        _transacao(distrito_slug="mooca", rs_m2_construido=Decimal("6000"), data_transacao=dt.date(2026, 6, 1))
+    _transacao(distrito_slug="mooca", rs_m2_construido=Decimal("1000"), data_transacao=dt.date(2026, 6, 1),
+               natureza="4.Arrematação (em leilão ou hasta pública)")
+    _transacao(distrito_slug="mooca", rs_m2_construido=Decimal("1000"), data_transacao=dt.date(2025, 1, 1))
+    _transacao(distrito_slug="se", rs_m2_construido=Decimal("9000"), data_transacao=dt.date(2026, 6, 1))
+    data_min = inicio_da_janela_da_cidade(2026, 7)
+    assert data_min == dt.date(2025, 8, 1)
+    r = valor_tipico_por_distrito(Transacao.objects.all(), data_min=data_min)
+    assert r["mooca"]["mediana_rs_m2"] == Decimal("6000")
+    assert r["mooca"]["n_com_metrica"] == 10
+    assert r["se"]["confianca"] == CONFIANCA_INSUFICIENTE

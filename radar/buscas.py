@@ -1,46 +1,21 @@
-import threading
-import time
 from collections import Counter
 from urllib.parse import urlencode
 
-from django.db import connection
 from django.db.models import Count
 from django.urls import reverse
 
 from radar.carga.normalizacao import normalizar, normalizar_logradouro
+from radar.memoria import memorizado
 from radar.models import Transacao
 from radar.regioes import POR_SLUG
 
-# As ruas distintas, com a contagem, ficam em memória em cada worker: filtrar algumas
+# As ruas distintas, com a contagem, ficam em memória (radar/memoria.py): filtrar algumas
 # dezenas de milhares de nomes em Python leva milissegundos, contra ~0,7 s de LIKE +
 # GROUP BY sobre a base inteira a cada tecla (medido em produção com 780 mil
 # transações, 11/10/2026). A lista sai inteira do índice de logradouro_norm, lido em
 # sequência. Os bairros NÃO entram aqui: a contagem por bairro precisa do distrito, que
 # não está no índice, e montar a lista inteira lia a tabela linha a linha — 48 s na VM
-# com o cache do disco frio. Passada a validade, a lista antiga continua respondendo
-# enquanto uma thread monta a nova. Uma carga nova aparece nas sugestões em até uma hora.
-VALIDADE_SEGUNDOS = 3600
-_memo = {}
-_renovando = set()
-
-
-def _renovar(nome, calcular):
-    try:
-        _memo[nome] = (calcular(), time.monotonic())
-    finally:
-        _renovando.discard(nome)
-        connection.close()
-
-
-def _memorizado(nome, calcular):
-    valor, quando = _memo.get(nome, (None, None))
-    if quando is None:
-        valor = calcular()
-        _memo[nome] = (valor, time.monotonic())
-    elif time.monotonic() - quando > VALIDADE_SEGUNDOS and nome not in _renovando:
-        _renovando.add(nome)
-        threading.Thread(target=_renovar, args=(nome, calcular), daemon=True).start()
-    return valor
+# com o cache do disco frio.
 
 
 def _ruas():
@@ -127,7 +102,7 @@ def sugerir_ruas(termo, limite=5):
         return []
     meio = " " + chave
     achadas = []
-    for nome, n in _memorizado("ruas", _ruas):
+    for nome, n in memorizado("ruas", _ruas):
         if nome.startswith(chave) or meio in nome:
             achadas.append({"texto": nome_de_rua(nome), "tipo": "rua", "url": url_de_rua(nome), "n": n})
             if len(achadas) == limite:

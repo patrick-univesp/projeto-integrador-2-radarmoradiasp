@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block titulo %}Mapa de São Paulo · Radar da Moradia SP{% endblock %}
+{% block descricao %}Valor típico do metro quadrado em cada um dos 96 distritos de São Paulo, a partir de vendas registradas no ITBI{% if periodo %} ({{ periodo }}){% endif %}.{% endblock %}
+
+{% block og_titulo %}Mapa de São Paulo · Radar da Moradia SP{% endblock %}
+{% block og_descricao %}Valor típico do metro quadrado em cada distrito de São Paulo, a partir de vendas registradas no ITBI.{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/regiao.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/maplibre-gl.css' %}">
+  <link rel="stylesheet" href="{% static 'css/mapa.css' %}">
+  <link rel="stylesheet" href="{% static 'css/mapa_cidade.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+<div class="container cidade">
+  <header class="cidade__topo">
+    <p class="mono">Mapa</p>
+    <h1 class="cidade__titulo">Mapa de São Paulo</h1>
+    <p class="cidade__lede">Valor típico do metro quadrado em cada distrito{% if periodo %}, {{ periodo }}{% endif %}. Toque num distrito para ver o valor e abrir a página dele.</p>
+  </header>
+
+  {% include "radar/_seletor_ano.html" with periodos=periodos only %}
+
+  {% if ranking %}
+    <div id="mapa-cidade" class="cidade__mapa" aria-hidden="true" data-ano="{{ ano|default:'' }}"></div>
+
+    <ul class="cidade__legenda" aria-label="Legenda: valor típico do metro quadrado">
+      {% for f in legenda %}
+        <li><span class="cidade__amostra cidade__amostra--{{ f.faixa }}" aria-hidden="true"></span>
+          {% if not f.de %}até R$&nbsp;{{ f.ate }}{% elif not f.ate %}R$&nbsp;{{ f.de }} ou mais{% else %}R$&nbsp;{{ f.de }} a R$&nbsp;{{ f.ate }}{% endif %}</li>
+      {% endfor %}
+      <li><span class="cidade__amostra cidade__amostra--0" aria-hidden="true"></span>poucas vendas</li>
+    </ul>
+
+    <p class="cidade__nota">
+      Aqui a janela de tempo é a mesma para todos os distritos, para a comparação ser justa. Na página
+      de cada região, os 12 meses contam a partir da última venda daquela região, por isso o valor
+      pode diferir um pouco. Distritos com menos de 10 vendas no período ficam sem valor.
+    </p>
+
+    <section class="ranking" aria-labelledby="ranking-titulo">
+      <h2 id="ranking-titulo" class="ranking__titulo">Do metro quadrado mais caro ao mais barato</h2>
+      <ol class="ranking__lista">
+        {% for d in ranking %}
+          <li class="ranking__item">
+            <span class="ranking__posicao" aria-hidden="true">{{ forloop.counter }}</span>
+            <a class="ranking__nome" href="{{ d.url }}">{{ d.nome }}</a>
+            <span class="ranking__valor">R$&nbsp;{{ d.valor_fmt }}<span class="ranking__unidade">/m²</span></span>
+            <svg class="ranking__barra" aria-hidden="true" preserveAspectRatio="none">
+              <rect class="ranking__trilho" width="100%" height="100%" rx="3" />
+              <rect class="ranking__preenchimento ranking__preenchimento--{{ d.faixa }}" width="{{ d.largura }}%" height="100%" rx="3" />
+            </svg>
+            <span class="ranking__vendas">{{ d.n_fmt }} venda{{ d.n|pluralize }}</span>
+          </li>
+        {% endfor %}
+      </ol>
+      {% if sem_valor %}
+        <p class="ranking__sem-valor">Sem vendas suficientes no período:
+          {% for d in sem_valor %}<a href="{{ d.url }}">{{ d.nome }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.</p>
+      {% endif %}
+    </section>
+  {% else %}
+    <p class="cidade__vazio">Ainda não há vendas suficientes registradas para desenhar o mapa{% if ano %} em {{ ano }}{% endif %}.</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block js %}
+  {% if ranking %}
+    <script src="{% static 'vendor/maplibre-gl.js' %}" defer></script>
+    <script src="{% static 'js/mapa_cidade.js' %}" defer></script>
+  {% endif %}
+{% endblock %}

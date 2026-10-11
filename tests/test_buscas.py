@@ -116,14 +116,14 @@ def test_sugerir_ruas_ignora_termo_curto():
 
 @pytest.mark.django_db
 def test_lista_vencida_responde_a_antiga_e_renova_em_segundo_plano(monkeypatch):
-    from radar import buscas
+    from radar import memoria
 
     chamadas = []
     # Vencida em relação ao relógio de agora: time.monotonic() conta desde que a
     # máquina ligou, e num runner de CI recém-criado "0.0" ainda está dentro da hora.
-    buscas._memo["teste"] = (["velha"], time.monotonic() - buscas.VALIDADE_SEGUNDOS - 1)
-    monkeypatch.setattr(buscas.threading, "Thread", lambda target, args, daemon: type(
+    memoria._memo["teste"] = (["velha"], time.monotonic() - memoria.VALIDADE_SEGUNDOS - 1)
+    monkeypatch.setattr(memoria.threading, "Thread", lambda target, args, daemon: type(
         "T", (), {"start": lambda self: target(*args)})())
-    assert buscas._memorizado("teste", lambda: chamadas.append(1) or ["nova"]) == ["velha"]
-    assert buscas._memo["teste"][0] == ["nova"]
+    assert memoria.memorizado("teste", lambda: chamadas.append(1) or ["nova"]) == ["velha"]
+    assert memoria._memo["teste"][0] == ["nova"]
     assert chamadas == [1]

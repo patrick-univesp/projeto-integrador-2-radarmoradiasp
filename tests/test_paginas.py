@@ -237,6 +237,55 @@ def test_sugestoes_so_trazem_rua_quando_pedido(client):
     assert com[0]["tipo"] == "rua" and com[0]["texto"] == "Rua Augusta"
 
 
+def _cidade_com_tres_distritos():
+    for slug, valor, n in (("pinheiros", "9000", 12), ("mooca", "6000", 12), ("se", "7000", 3)):
+        for _ in range(n):
+            _transacao_regiao(distrito_slug=slug, rs_m2_construido=Decimal(valor),
+                              data_transacao=dt.date(2026, 6, 1), ano_guia=2026, mes_guia=6)
+
+
+@pytest.mark.django_db
+def test_mapa_lista_os_distritos_do_mais_caro_ao_mais_barato(client):
+    _cidade_com_tres_distritos()
+    corpo = " ".join(client.get(reverse("radar:mapa")).content.decode().split())
+    assert corpo.index("Pinheiros</a>") < corpo.index("Mooca</a>")
+    assert 'width="100.0%"' in corpo  # o mais caro enche a barra
+    assert "Sem vendas suficientes no período:" in corpo
+    assert "julho de 2025 a junho de 2026" in corpo
+    assert 'id="mapa-cidade"' in corpo
+
+
+@pytest.mark.django_db
+def test_mapa_json_traz_os_96_distritos_com_faixa(client):
+    _cidade_com_tres_distritos()
+    distritos = {d["slug"]: d for d in client.get(reverse("radar:mapa_dados")).json()["distritos"]}
+    assert len(distritos) == 96
+    assert distritos["pinheiros"]["faixa"] > distritos["mooca"]["faixa"] >= 1
+    assert distritos["se"]["faixa"] == 0 and distritos["se"]["mediana"] is None
+    assert distritos["pinheiros"]["url"] == "/regiao/pinheiros/"
+
+
+@pytest.mark.django_db
+def test_periodo_preserva_os_outros_parametros(client):
+    _regiao_com_dois_anos()
+    corpo = client.get(reverse("radar:regiao", args=["mooca"]) + "?ordenar=valor&pagina=2").content.decode()
+    assert 'href="/regiao/mooca/?ordenar=valor&amp;ano=2025"' in corpo
+    assert 'href="/regiao/mooca/?ordenar=valor" aria-current="true"' in corpo
+
+
+@pytest.mark.django_db
+def test_mapa_sem_dados_tem_estado_vazio(client):
+    corpo = client.get(reverse("radar:mapa")).content.decode()
+    assert "Ainda não há vendas suficientes" in corpo
+    assert "mapa_cidade.js" not in corpo
+
+
+@pytest.mark.django_db
+def test_cabecalho_e_inicio_levam_ao_mapa(client):
+    corpo = client.get(reverse("radar:inicio")).content.decode()
+    assert corpo.count('href="/mapa/"') == 2
+
+
 def _regiao_com_dois_anos():
     for _ in range(12):
         _transacao_regiao(rs_m2_construido=Decimal("5000"), data_transacao=dt.date(2025, 6, 1),
@@ -251,7 +300,7 @@ def test_regiao_filtra_por_ano(client):
     _regiao_com_dois_anos()
     corpo = client.get(reverse("radar:regiao", args=["mooca"]) + "?ano=2025").content.decode()
     assert "R$&nbsp;5.000" in corpo
-    assert '<option value="2025" selected>2025</option>' in corpo
+    assert '<a class="periodo__opcao" href="/regiao/mooca/?ano=2025" aria-current="true">2025</a>' in corpo
     assert "sem correção pela inflação" in corpo
 
 
@@ -260,7 +309,7 @@ def test_regiao_ano_invalido_volta_aos_ultimos_12_meses(client):
     _regiao_com_dois_anos()
     for valor in ("1999", "abc", ""):
         corpo = client.get(reverse("radar:regiao", args=["mooca"]) + f"?ano={valor}").content.decode()
-        assert '<option value="" selected>últimos 12 meses</option>' in corpo
+        assert 'href="/regiao/mooca/" aria-current="true">últimos 12 meses</a>' in corpo
 
 
 @pytest.mark.django_db

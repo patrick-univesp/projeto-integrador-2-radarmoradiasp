@@ -17,9 +17,9 @@ def _sem_limite_de_taxa(settings):
 
 
 @pytest.fixture(autouse=True)
-def _sugestoes_sem_memoria():
-    """A lista de ruas das sugestões fica em memória por uma hora; entre testes, cada
-    um cria as próprias transações."""
-    from radar import buscas
+def _sem_memoria():
+    """Listas e agregados caros ficam em memória por uma hora (radar/memoria.py); entre
+    testes, cada um cria as próprias transações."""
+    from radar import memoria
 
-    buscas._memo.clear()
+    memoria._memo.clear()
