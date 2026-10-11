@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block titulo %}{{ nome }} · Radar da Moradia SP{% endblock %}
+{% block descricao %}{% if transacoes %}{{ pagina.paginator.count }} transaç{{ pagina.paginator.count|pluralize:"ão,ões" }} registrada{{ pagina.paginator.count|pluralize }} no ITBI na {{ nome }}.{% else %}Nenhuma transação registrada no ITBI na {{ nome }}.{% endif %}{% endblock %}
+
+{% block og_titulo %}{{ nome }} · Radar da Moradia SP{% endblock %}
+{% block og_descricao %}{% if transacoes %}{{ pagina.paginator.count }} transaç{{ pagina.paginator.count|pluralize:"ão,ões" }} registrada{{ pagina.paginator.count|pluralize }} no ITBI na {{ nome }}.{% else %}Nenhuma transação registrada no ITBI na {{ nome }}.{% endif %}{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/regiao.css' %}">
+  <link rel="stylesheet" href="{% static 'css/cep.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+<div class="container cep">
+  <p class="mono cep__rotulo">Rua</p>
+  <h1 class="cep__nome">{{ nome }}</h1>
+
+  {% if distritos %}
+    <p class="rua__distritos">
+      Valor típico do metro quadrado em
+      {% for d in distritos %}<a href="{% url 'radar:regiao' d.regiao.slug %}">{{ d.regiao.nome }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.
+    </p>
+  {% endif %}
+
+  {% include "radar/_lista_transacoes.html" with transacoes=transacoes pagina=pagina vazio_texto=transacoes_vazio_texto %}
+</div>
+{% endblock %}

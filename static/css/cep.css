@@ -5,6 +5,11 @@
 
 .cep__rotulo { margin-bottom: var(--e-2); }
 
+.rua__distritos {
+  margin-top: var(--e-4);
+  color: var(--text-2);
+}
+
 .cep__nome {
   font-size: var(--t-titulo);
   font-weight: var(--peso-forte);

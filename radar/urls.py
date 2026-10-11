@@ -12,6 +12,7 @@ urlpatterns = [
     path("comparar/", views.comparar, name="comparar"),
     path("regiao/<slug:slug>/pontos.geojson", views.pontos_regiao, name="pontos_regiao"),
     path("cep/<str:cep>/", views.cep, name="cep"),
+    path("rua/", views.rua, name="rua"),
     path("transacao/<int:id>/", views.transacao, name="transacao"),
     path("como-funciona/", views.como_funciona, name="como_funciona"),
 ]

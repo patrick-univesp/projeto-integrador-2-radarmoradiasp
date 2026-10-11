@@ -75,6 +75,7 @@ flowchart LR
 | `complemento`            | `CharField(40)`       | `blank=True`    | —                               | planilha           | unidade dentro do imóvel (`AP 614`, `BL. TC AP 614`); ~10% vazio; é o campo que denuncia venda de apartamento num SQL ainda cadastrado como terreno |
 | `bairro`                 | `CharField(120)`      | `blank=True`    | —                               | planilha           | grafia original do IPTU; **vem vazio em 40% das linhas**                                                                                            |
 | `bairro_norm`            | `CharField(120)`      | `blank=True`    | simples                         | derivado           | sem acento, caixa única, grafias unificadas — é a chave de busca por bairro; vazio quando `bairro` é vazio                                          |
+| `logradouro_norm`        | `CharField(150)`      | `blank=True`    | simples                         | derivado           | `normalizar_logradouro(logradouro)`: tipo e títulos por extenso (`R CEL` → `RUA CORONEL`) — é a chave da busca por rua                          |
 | `cep`                    | `CharField(8)`        | `blank=True`    | simples                         | planilha           | só dígitos, com zero à esquerda preservado; 99,998% preenchido                                                                                      |
 | `distrito`               | `CharField(60)`       | `blank=True`    | simples                         | geo                | chave crua do dado (caixa alta, sem acento) — proveniência; nenhuma view filtra por ele                                                             |
 | `distrito_slug`          | `CharField(60)`       | `blank=True`    | simples + composto              | derivado           | slug do registro canônico (`radar/regioes.py`); é o que toda consulta usa para filtrar por região; `""` se o distrito não bate com nenhuma das 96   |
@@ -110,6 +111,7 @@ espacial é _bounding box_, não geometria. Onze ao todo (`0001`, `0002`, `0005`
 | Índice                     | Colunas                        | Consulta que serve                                               |
 | -------------------------- | ------------------------------ | ---------------------------------------------------------------- |
 | `..._bairro_norm_...`      | `bairro_norm`                  | autocomplete e busca por bairro                                  |
+| `..._logradouro_norm_...`  | `logradouro_norm`              | busca por rua (sugestões e página da rua)                        |
 | `..._cep_...`              | `cep`                          | busca por CEP                                                    |
 | `..._distrito_...`         | `distrito`                     | proveniência — não usado em consulta de view                     |
 | `..._distrito_slug_...`    | `distrito_slug`                | filtro por região                                                |

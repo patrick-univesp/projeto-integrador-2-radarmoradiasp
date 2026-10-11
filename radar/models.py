@@ -48,6 +48,8 @@ class Transacao(models.Model):
     sql = models.CharField("SQL", max_length=11)
 
     logradouro = models.CharField(max_length=150)
+    # Chave da busca por rua (normalizar_logradouro): títulos e tipos por extenso.
+    logradouro_norm = models.CharField(max_length=150, blank=True, db_index=True)
     numero = models.CharField(max_length=10)
     complemento = models.CharField(max_length=40, blank=True)
     bairro = models.CharField(max_length=120, blank=True)

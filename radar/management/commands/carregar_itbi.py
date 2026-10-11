@@ -17,7 +17,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
 
 from radar.carga import coercao, geo_ref, mineracao
-from radar.carga.normalizacao import normalizar_bairro
+from radar.carga.normalizacao import normalizar_bairro, normalizar_logradouro
 from radar.models import Transacao
 from radar.regioes import slug_de_distrito
 
@@ -154,6 +154,7 @@ def _linha_para_transacao(bruta, indices, ano_guia, mes_guia):
     return Transacao(
         sql=sql,
         logradouro=logr[:150],
+        logradouro_norm=normalizar_logradouro(logr)[:150],
         numero=coercao.para_numero_porta(bruta[C_NUM])[:10],
         complemento=coercao.para_texto(bruta[C_COMPL])[:40],
         bairro=bairro[:120],

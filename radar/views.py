@@ -1,7 +1,9 @@
 import re
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
+from urllib.parse import urlencode
 
 from django.core.paginator import Paginator
+from django.db.models import Count
 from django.http import Http404, HttpResponsePermanentRedirect, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
@@ -9,9 +11,9 @@ from django_ratelimit.decorators import ratelimit
 
 from radar import como_funciona as cf
 from radar.admin_carga import TAMANHO_MAX_MB
-from radar.buscas import sugerir_regioes
+from radar.buscas import nome_de_rua, sugerir
 from radar.carga.mineracao import PROPORCAO_MIN_METRICA, cod_natureza, rs_m2_construido
-from radar.carga.normalizacao import normalizar, normalizar_bairro
+from radar.carga.normalizacao import normalizar, normalizar_bairro, normalizar_logradouro
 from radar.estatisticas import estatisticas_regiao, serie_mensal, transacoes_da_regiao
 from radar.models import Transacao
 from radar.regioes import APELIDOS, POR_SLUG
@@ -358,7 +360,12 @@ def inicio(request):
     )
 
 
+@ratelimit(key="ip", rate=TAXA_CONSULTA, block=False)
 def busca(request):
+    """O destino do formulário quando ninguém escolhe uma sugestão (Enter direto, ou
+    sem JavaScript): um resultado só vai direto para ele; mais de um vira lista."""
+    if request.limited:
+        return render(request, "429.html", status=429)
     termo = (request.GET.get("q") or "").strip()
     # Nenhuma rua de São Paulo começa com dígito — o campo já aplica essa
     # máscara no cliente (static/js/autocomplete.js), mas resolve aqui de
@@ -367,16 +374,43 @@ def busca(request):
         digitos = re.sub(r"\D", "", termo)
         if CEP_REGEX.fullmatch(digitos):
             return HttpResponseRedirect(reverse("radar:cep", args=[digitos]))
+    resultados = sugerir(termo) if termo else []
+    if len(resultados) == 1:
+        return HttpResponseRedirect(resultados[0]["url"])
+    return render(request, "radar/busca.html", {"termo": termo, "resultados": resultados})
+
+
+@ratelimit(key="ip", rate=TAXA_CONSULTA, block=False)
+def rua(request):
+    """Transações de uma rua (mesmo molde da página de CEP). A mesma rua pode existir
+    em mais de um distrito ("Rua A"), então a página lista os distritos também."""
+    if request.limited:
+        return render(request, "429.html", status=429)
+    chave = normalizar_logradouro(request.GET.get("nome", ""))
+    if not chave:
+        raise Http404("rua não informada")
+    nome = nome_de_rua(chave)
+
+    da_rua = Transacao.objects.filter(logradouro_norm=chave)
+    distritos = [
+        {"regiao": POR_SLUG[slug], "n": n}
+        for slug, n in da_rua.exclude(distrito_slug="").values_list("distrito_slug")
+        .annotate(n=Count("id")).order_by("-n")
+        if slug in POR_SLUG
+    ]
+    pagina = Paginator(da_rua.order_by("-data_transacao"), TRANSACOES_POR_PAGINA).get_page(
+        request.GET.get("pagina")
+    )
     return render(
         request,
-        "radar/em_breve.html",
+        "radar/rua.html",
         {
-            "titulo": f"Busca por “{termo}”" if termo else "Busca",
-            "mensagem": (
-                "A busca ainda não está ligada: falta o autocomplete que resolve um "
-                "termo digitado para uma região. Esta tela existe para o caminho da "
-                "interface ficar completo enquanto o restante é construído."
-            ),
+            "nome": nome,
+            "distritos": distritos,
+            "transacoes": _transacoes_formatadas(pagina),
+            "pagina": pagina,
+            "filtro_qs": urlencode({"nome": chave}) + "&",
+            "transacoes_vazio_texto": f"Nenhuma transação encontrada para {nome}.",
         },
     )
 
@@ -676,7 +710,7 @@ def sugestoes(request):
     if request.limited:
         return JsonResponse({"sugestoes": []}, status=429)
     termo = request.GET.get("q", "")
-    return JsonResponse({"sugestoes": sugerir_regioes(termo)})
+    return JsonResponse({"sugestoes": sugerir(termo, ruas=request.GET.get("ruas") == "1")})
 
 
 _MES_ABREV = ("JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ")

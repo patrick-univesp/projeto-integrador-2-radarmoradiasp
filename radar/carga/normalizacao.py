@@ -66,3 +66,26 @@ def normalizar_bairro(texto) -> str:
     em ``bairro_norm`` (sem tocar no ``bairro`` cru)."""
     n = normalizar(texto)
     return "" if eh_lixo_de_bairro(n) else n
+
+
+# Títulos abreviados no nome da rua, levantados contra a base real (todos com dezenas
+# de ruas cada). Só a busca por rua usa: ``normalizar`` também é a chave de casamento
+# da referência geográfica, e mudá-la mexeria na localização das próximas cargas.
+_TITULOS = {
+    "DR": "DOUTOR", "DRA": "DOUTORA", "PROF": "PROFESSOR", "PROFA": "PROFESSORA",
+    "PDE": "PADRE", "CEL": "CORONEL", "ENG": "ENGENHEIRO", "GAL": "GENERAL",
+    "CAP": "CAPITAO", "MIN": "MINISTRO", "COMEN": "COMENDADOR", "DESEM": "DESEMBARGADOR",
+    "VISC": "VISCONDE", "MONS": "MONSENHOR", "SOLD": "SOLDADO", "TTE": "TENENTE",
+    "MAJ": "MAJOR", "SEN": "SENADOR", "NSRA": "NOSSA SENHORA", "MAEST": "MAESTRO",
+    "MAL": "MARECHAL", "CONS": "CONSELHEIRO", "ALM": "ALMIRANTE", "SARG": "SARGENTO",
+    "MARQ": "MARQUES", "CON": "CONEGO", "BRIG": "BRIGADEIRO", "PRES": "PRESIDENTE",
+    "DEP": "DEPUTADO", "VER": "VEREADOR", "BR": "BARAO",
+    "ES": "ESTRADA", "LG": "LARGO", "PS": "PASSAGEM", "LD": "LADEIRA",
+}
+
+
+def normalizar_logradouro(texto) -> str:
+    """Chave da busca por rua: ``'R CEL JOAO DENTE'`` → ``'RUA CORONEL JOAO DENTE'``,
+    igual ao que alguém digitaria por extenso."""
+    n = normalizar(texto)
+    return " ".join(_TITULOS.get(p, p) for p in n.split()) if n else ""

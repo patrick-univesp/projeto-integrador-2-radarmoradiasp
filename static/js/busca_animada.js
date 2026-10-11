@@ -6,17 +6,17 @@
     return;
   }
 
-  const padrao = 'Digite um bairro ou CEP de São Paulo';
+  const padrao = 'Digite um bairro, rua ou CEP de São Paulo';
 
-  // Rua saiu da animação — issue #30, ainda não tem busca de verdade
-  // (precisa de índice + normalização em logradouro). Bairro (#06) e CEP
-  // (#28) funcionam os dois, com dado real por trás.
   const exemplos = [
     'Pinheiros',
     'Mooca',
     'Vila Mariana',
     'Itaim Bibi',
     'Tatuapé',
+    'Rua Augusta',
+    'Avenida Paulista',
+    'Rua Teodoro Sampaio',
     '01310-100',
     '04538-133',
     '03162-020',

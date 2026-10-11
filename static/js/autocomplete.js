@@ -1,5 +1,5 @@
 (function () {
-  function iniciarAutocomplete(campo, lista, aoSelecionar) {
+  function iniciarAutocomplete(campo, lista, aoSelecionar, comRuas) {
     if (!campo || !lista) return;
 
     const ESPERA_MS = 250;
@@ -36,7 +36,7 @@
       if (sugestoes.length === 0) {
         const vazio = document.createElement('li');
         vazio.className = 'sugestoes__vazio';
-        vazio.textContent = 'Nenhuma região encontrada';
+        vazio.textContent = comRuas ? 'Nenhuma região ou rua encontrada' : 'Nenhuma região encontrada';
         lista.appendChild(vazio);
         lista.hidden = false;
         campo.setAttribute('aria-expanded', 'true');
@@ -48,11 +48,18 @@
         li.id = lista.id + '-' + indice;
         li.className = 'sugestoes__item';
         li.setAttribute('role', 'option');
-        li.dataset.slug = s.slug;
+        li.dataset.slug = s.slug || '';
+        li.dataset.url = s.url;
         li.textContent = s.texto;
+        if (s.tipo === 'rua') {
+          const tipo = document.createElement('span');
+          tipo.className = 'sugestoes__tipo';
+          tipo.textContent = 'rua';
+          li.appendChild(tipo);
+        }
         li.addEventListener('mousedown', function (e) {
           e.preventDefault();
-          aoSelecionar(li.dataset.slug);
+          aoSelecionar(li.dataset);
         });
         lista.appendChild(li);
         opcoes.push(li);
@@ -66,7 +73,8 @@
       if (controller) controller.abort();
       controller = new AbortController();
 
-      fetch('/api/sugestoes/?q=' + encodeURIComponent(termo), { signal: controller.signal })
+      const url = '/api/sugestoes/?q=' + encodeURIComponent(termo) + (comRuas ? '&ruas=1' : '');
+      fetch(url, { signal: controller.signal })
         .then((r) => r.json())
         .then((dados) => renderizar(dados.sugestoes || []))
         .catch((erro) => {
@@ -120,7 +128,7 @@
         fechar();
       } else if (e.key === 'Enter' && ativa >= 0 && opcoes[ativa]) {
         e.preventDefault();
-        aoSelecionar(opcoes[ativa].dataset.slug);
+        aoSelecionar(opcoes[ativa].dataset);
       }
     });
 
@@ -131,24 +139,24 @@
     });
   }
 
-  // Busca da home: selecionar uma sugestão navega direto pra página da região.
-  function navegarParaRegiao(slug) {
-    window.location.href = '/regiao/' + slug + '/';
+  // Busca da home: selecionar uma sugestão navega direto pra página da região
+  // ou da rua (cada sugestão traz a própria URL).
+  function navegar(item) {
+    window.location.href = item.url;
   }
 
   // Comparação entre regiões: dois campos na mesma página, cada um só troca
   // o seu lado — preenche o próprio campo com o slug e reenvia o form (GET),
-  // sem navegar pra fora da tela de comparação.
-  function preencherESubmeter(campo, slug) {
-    campo.value = slug;
+  // sem navegar pra fora da tela de comparação. Por isso só aceita região.
+  function preencherESubmeter(campo, item) {
+    campo.value = item.slug;
     campo.form.submit();
   }
 
   document.querySelectorAll('[data-autocomplete]').forEach(function (campo) {
     const lista = document.getElementById(campo.getAttribute('aria-controls'));
-    const aoSelecionar = campo.dataset.autocomplete === 'form'
-      ? (slug) => preencherESubmeter(campo, slug)
-      : navegarParaRegiao;
-    iniciarAutocomplete(campo, lista, aoSelecionar);
+    const ehFormulario = campo.dataset.autocomplete === 'form';
+    const aoSelecionar = ehFormulario ? (item) => preencherESubmeter(campo, item) : navegar;
+    iniciarAutocomplete(campo, lista, aoSelecionar, !ehFormulario);
   });
 })();

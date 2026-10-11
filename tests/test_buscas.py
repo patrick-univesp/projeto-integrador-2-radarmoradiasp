@@ -30,14 +30,14 @@ def test_termo_vazio_nao_bate_no_banco(django_assert_num_queries):
 _seq = 0
 
 
-def _transacao(distrito_slug, bairro_norm=""):
+def _transacao(distrito_slug, bairro_norm="", logradouro_norm=""):
     global _seq
     _seq += 1
     from radar.models import Transacao
 
     return Transacao.objects.create(
         sql=f"{_seq:011d}", valor_transacao=1, base_calculo=1,
-        distrito_slug=distrito_slug, bairro_norm=bairro_norm,
+        distrito_slug=distrito_slug, bairro_norm=bairro_norm, logradouro_norm=logradouro_norm,
     )
 
 
@@ -78,3 +78,35 @@ def test_bairro_sem_distrito_resolvido_nao_vira_sugestao():
 def test_respeita_o_limite():
     resultado = sugerir_regioes("a", limite=2)
     assert len(resultado) <= 2
+
+
+def test_normalizar_logradouro_expande_titulos():
+    from radar.carga.normalizacao import normalizar_logradouro
+
+    assert normalizar_logradouro("R CEL JOAO DENTE") == "RUA CORONEL JOAO DENTE"
+    assert normalizar_logradouro("Avenida Presidente Wilson") == "AVENIDA PRESIDENTE WILSON"
+    assert normalizar_logradouro("AV PRES WILSON") == "AVENIDA PRESIDENTE WILSON"
+
+
+def test_nome_de_rua_deixa_particulas_minusculas():
+    from radar.buscas import nome_de_rua
+
+    assert nome_de_rua("RUA BARAO DE ITAPETININGA") == "Rua Barao de Itapetininga"
+
+
+@pytest.mark.django_db
+def test_sugerir_ruas_casa_inicio_de_palavra_e_ordena_por_volume():
+    from radar.buscas import sugerir_ruas
+
+    for _ in range(3):
+        _transacao("mooca", logradouro_norm="RUA CORONEL JOAO DENTE")
+    _transacao("mooca", logradouro_norm="RUA DENTELO")
+    _transacao("mooca", logradouro_norm="RUA ACIDENTE")
+    nomes = [r["texto"] for r in sugerir_ruas("dente")]
+    assert nomes == ["Rua Coronel Joao Dente", "Rua Dentelo"]
+
+
+def test_sugerir_ruas_ignora_termo_curto():
+    from radar.buscas import sugerir_ruas
+
+    assert sugerir_ruas("ru") == []

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block titulo %}{% if termo %}Busca por “{{ termo }}”{% else %}Busca{% endif %} · Radar da Moradia SP{% endblock %}
+
+{% block conteudo %}
+<div class="container simples">
+  <h1>{% if termo %}Busca por “{{ termo }}”{% else %}Busca{% endif %}</h1>
+  {% if resultados %}
+    <ul class="busca-resultados">
+      {% for r in resultados %}
+        <li>
+          <a href="{{ r.url }}">{{ r.texto }}</a>
+          <span class="busca-resultados__tipo">{% if r.tipo == "rua" %}rua{% else %}região{% endif %} · {{ r.n }} transaç{{ r.n|pluralize:"ão,ões" }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% elif termo %}
+    <p>Nenhuma região ou rua encontrada para “{{ termo }}”. Tente o nome de um bairro, de uma rua ou um CEP.</p>
+  {% else %}
+    <p>Digite o nome de um bairro, de uma rua ou um CEP.</p>
+  {% endif %}
+  <p class="simples__acao"><a href="{% url 'radar:inicio' %}">Voltar para a busca</a></p>
+</div>
+{% endblock %}

@@ -86,10 +86,25 @@ def test_inicio_omite_a_linha_da_base_quando_vazia(client):
     assert "transações reais" not in corpo
 
 
-def test_busca_aceita_termo(client):
+@pytest.mark.django_db
+def test_busca_com_um_resultado_vai_direto_para_ele(client):
     r = client.get(reverse("radar:busca"), {"q": "Mooca"})
-    assert r.status_code == 200
-    assert "Mooca" in r.content.decode()
+    assert r.status_code == 302
+    assert r.url == reverse("radar:regiao", args=["mooca"])
+
+
+@pytest.mark.django_db
+def test_busca_com_varios_resultados_lista_regioes_e_ruas(client):
+    _transacao_regiao(logradouro_norm="RUA DA MOOCA")
+    corpo = client.get(reverse("radar:busca"), {"q": "Mooca"}).content.decode()
+    assert 'href="/regiao/mooca/"' in corpo
+    assert 'href="/rua/?nome=RUA+DA+MOOCA"' in corpo
+
+
+@pytest.mark.django_db
+def test_busca_sem_resultado_explica(client):
+    corpo = client.get(reverse("radar:busca"), {"q": "xyzw"}).content.decode()
+    assert "Nenhuma região ou rua encontrada" in corpo
 
 
 def test_busca_com_cep_de_8_digitos_redireciona_pro_cep(client):
@@ -104,6 +119,7 @@ def test_busca_com_cep_formatado_com_hifen_tambem_redireciona(client):
     assert r.url == reverse("radar:cep", args=["01310100"])
 
 
+@pytest.mark.django_db
 def test_busca_com_digitos_incompletos_nao_redireciona(client):
     r = client.get(reverse("radar:busca"), {"q": "013101"})
     assert r.status_code == 200
@@ -194,6 +210,31 @@ def test_regiao_explica_o_que_o_valor_tipico_e(client):
     assert "#referencia" in corpo
     assert "1 venda que não é compra e venda (leilão" in corpo
     assert "não entra no valor típico" in corpo
+
+
+@pytest.mark.django_db
+def test_rua_lista_transacoes_e_distritos(client):
+    _transacao_regiao(logradouro_norm="RUA CORONEL JOAO DENTE")
+    _transacao_regiao(logradouro_norm="RUA CORONEL JOAO DENTE", distrito_slug="tatuape")
+    _transacao_regiao(logradouro_norm="RUA AUGUSTA")
+    corpo = client.get(reverse("radar:rua"), {"nome": "R CEL JOAO DENTE"}).content.decode()
+    assert "Rua Coronel Joao Dente" in corpo
+    assert corpo.count('class="transacoes__item"') == 2
+    assert 'href="/regiao/mooca/"' in corpo and 'href="/regiao/tatuape/"' in corpo
+
+
+@pytest.mark.django_db
+def test_rua_sem_nome_da_404(client):
+    assert client.get(reverse("radar:rua")).status_code == 404
+
+
+@pytest.mark.django_db
+def test_sugestoes_so_trazem_rua_quando_pedido(client):
+    _transacao_regiao(logradouro_norm="RUA AUGUSTA")
+    sem = client.get(reverse("radar:sugestoes"), {"q": "augusta"}).json()["sugestoes"]
+    com = client.get(reverse("radar:sugestoes"), {"q": "augusta", "ruas": "1"}).json()["sugestoes"]
+    assert sem == []
+    assert com[0]["tipo"] == "rua" and com[0]["texto"] == "Rua Augusta"
 
 
 def _regiao_com_dois_anos():
