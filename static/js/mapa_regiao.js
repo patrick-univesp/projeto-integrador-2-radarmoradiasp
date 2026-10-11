@@ -4,6 +4,7 @@
 
   var slug = elemento.dataset.slug;
   var distrito = elemento.dataset.distrito;
+  var ano = elemento.dataset.ano;
 
   // tokens.css declara --accent em oklch() por cima do hex; getComputedStyle
   // devolve o oklch() de volta, e o parser de cor do MapLibre não entende
@@ -102,7 +103,7 @@
       })
       .catch(function () {});
 
-    fetch('/regiao/' + slug + '/pontos.geojson')
+    fetch('/regiao/' + slug + '/pontos.geojson' + (ano ? '?ano=' + encodeURIComponent(ano) : ''))
       .then(function (r) { return r.json(); })
       .then(function (pontos) {
         if (!pontos.features.length) {

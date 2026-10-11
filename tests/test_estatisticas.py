@@ -419,3 +419,27 @@ def test_pct_pela_referencia_conta_base_acima_do_declarado():
 def test_pct_pela_referencia_e_none_sem_vvr():
     _transacao()
     assert estatisticas_regiao(Transacao.objects.all())["pct_pela_referencia"] is None
+
+
+# --- filtro por ano -------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_ano_restringe_ao_ano_do_negocio():
+    for _ in range(3):
+        _transacao(rs_m2_construido=Decimal("5000"), data_transacao=dt.date(2025, 5, 1), ano_transacao=2025)
+    _transacao(rs_m2_construido=Decimal("9000"), data_transacao=dt.date(2026, 5, 1), ano_transacao=2026)
+    r = estatisticas_regiao(Transacao.objects.all(), ano=2025)
+    assert r["n_com_metrica"] == 3
+    assert r["mediana_rs_m2"] == Decimal("5000")
+    assert r["data_min"] == dt.date(2025, 1, 1)
+
+
+@pytest.mark.django_db
+def test_serie_do_ano_so_tem_meses_do_ano():
+    _transacao(data_transacao=dt.date(2025, 3, 1), ano_transacao=2025)
+    _transacao(data_transacao=dt.date(2025, 11, 1), ano_transacao=2025)
+    _transacao(data_transacao=dt.date(2026, 2, 1), ano_transacao=2026)
+    serie, _ = serie_mensal(Transacao.objects.all(), ano=2025)
+    assert (serie[0]["ano"], serie[0]["mes"]) == (2025, 3)
+    assert (serie[-1]["ano"], serie[-1]["mes"]) == (2025, 11)

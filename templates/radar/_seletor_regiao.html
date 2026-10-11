@@ -1,4 +1,5 @@
 <form class="busca comparar__busca" method="get" action="{% url 'radar:comparar' %}" role="search">
+  {% if ano %}<input type="hidden" name="ano" value="{{ ano }}">{% endif %}
   {% if campo == "a" %}
     <input type="hidden" name="b" value="{{ outro_slug }}">
   {% else %}

@@ -19,6 +19,10 @@
   </header>
 
   {% if regiao_a and regiao_b %}
+    {% include "radar/_seletor_ano.html" with anos=anos ano=ano a=regiao_a.slug b=regiao_b.slug only %}
+  {% endif %}
+
+  {% if regiao_a and regiao_b %}
     <div class="comparar__diferenca">
       {% if diferenca %}
         {% if diferenca.igual %}

@@ -196,6 +196,63 @@ def test_regiao_explica_o_que_o_valor_tipico_e(client):
     assert "não entra no valor típico" in corpo
 
 
+def _regiao_com_dois_anos():
+    for _ in range(12):
+        _transacao_regiao(rs_m2_construido=Decimal("5000"), data_transacao=dt.date(2025, 6, 1),
+                          ano_transacao=2025, ano_guia=2025, mes_guia=6)
+    for _ in range(12):
+        _transacao_regiao(rs_m2_construido=Decimal("9000"), data_transacao=dt.date(2026, 6, 1),
+                          ano_transacao=2026, ano_guia=2026, mes_guia=6)
+
+
+@pytest.mark.django_db
+def test_regiao_filtra_por_ano(client):
+    _regiao_com_dois_anos()
+    corpo = client.get(reverse("radar:regiao", args=["mooca"]) + "?ano=2025").content.decode()
+    assert "R$&nbsp;5.000" in corpo
+    assert '<option value="2025" selected>2025</option>' in corpo
+    assert "sem correção pela inflação" in corpo
+
+
+@pytest.mark.django_db
+def test_regiao_ano_invalido_volta_aos_ultimos_12_meses(client):
+    _regiao_com_dois_anos()
+    for valor in ("1999", "abc", ""):
+        corpo = client.get(reverse("radar:regiao", args=["mooca"]) + f"?ano={valor}").content.decode()
+        assert '<option value="" selected>últimos 12 meses</option>' in corpo
+
+
+@pytest.mark.django_db
+def test_regiao_links_de_ordem_e_pagina_mantem_o_ano(client):
+    for _ in range(25):
+        _transacao_regiao(data_transacao=dt.date(2025, 6, 1), ano_transacao=2025, ano_guia=2025, mes_guia=6)
+    corpo = client.get(reverse("radar:regiao", args=["mooca"]) + "?ano=2025").content.decode()
+    assert 'href="?ano=2025&amp;ordenar=valor"' in corpo
+    assert 'href="?ano=2025&amp;ordenar=data&amp;pagina=2"' in corpo
+    assert 'data-ano="2025"' in corpo
+
+
+@pytest.mark.django_db
+def test_pontos_do_mapa_respeitam_o_ano(client):
+    from radar.models import Transacao
+
+    _regiao_com_dois_anos()
+    Transacao.objects.update(lat=-23.55, lon=-46.6)
+    r = client.get(reverse("radar:pontos_regiao", args=["mooca"]) + "?ano=2025").json()
+    assert len(r["features"]) == 12
+
+
+@pytest.mark.django_db
+def test_comparacao_usa_o_mesmo_ano_nas_duas_regioes(client):
+    _regiao_com_dois_anos()
+    for _ in range(12):
+        _transacao_regiao(distrito_slug="tatuape", rs_m2_construido=Decimal("6000"),
+                          data_transacao=dt.date(2025, 6, 1), ano_transacao=2025, ano_guia=2025, mes_guia=6)
+    corpo = client.get(reverse("radar:comparar") + "?a=mooca&b=tatuape&ano=2025").content.decode()
+    assert "R$&nbsp;1.000/m²" in corpo
+    assert 'name="ano" value="2025"' in corpo
+
+
 @pytest.mark.django_db
 def test_regiao_marcador_da_faixa_usa_ponto_decimal(client):
     """LANGUAGE_CODE="pt-br" localiza número cru no template (vírgula em vez de

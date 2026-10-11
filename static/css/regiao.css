@@ -308,3 +308,38 @@
     min-height: 440px;
   }
 }
+
+.periodo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-2) var(--e-3);
+  margin-top: var(--e-4);
+  font-size: .9375rem;
+}
+.periodo__rotulo {
+  font-size: var(--t-apoio);
+  font-weight: var(--peso-forte);
+  color: var(--text-2);
+}
+.periodo__campo,
+.periodo__botao {
+  min-height: var(--alvo-toque);
+  padding-inline: var(--e-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--raio-botao);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.periodo__botao { cursor: pointer; }
+.periodo__botao:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.periodo__nota {
+  flex-basis: 100%;
+  font-size: .8125rem;
+  color: var(--text-3);
+}

@@ -177,6 +177,24 @@ def _resumo_da_base():
     }
 
 
+def _anos_disponiveis():
+    """Anos de guia carregados, do mais recente ao mais antigo. O filtro usa o ano
+    do negócio, mas só oferece ano cujas guias estão na base: um negócio de 2022
+    pago em 2023 existe, mas o ano de 2022 estaria incompleto."""
+    anos = Transacao.objects.exclude(ano_guia=None).values_list("ano_guia", flat=True).distinct()
+    return sorted(anos, reverse=True)
+
+
+def _ano_pedido(request):
+    """O ``?ano=`` da URL, se for um dos anos disponíveis; qualquer outra coisa
+    volta para a janela padrão (os últimos 12 meses)."""
+    try:
+        ano = int(request.GET.get("ano", ""))
+    except ValueError:
+        return None
+    return ano if ano in _anos_disponiveis() else None
+
+
 def _formatar_rs(valor):
     """"8.465" ou "8.465,50" — separador de milhar por ponto, duas casas só quando
     o valor tem centavos de verdade (issue #09: "duas casas quando couber")."""
@@ -399,15 +417,20 @@ def regiao(request, slug):
     if request.limited:
         return render(request, "429.html", status=429)
     if slug in APELIDOS:
-        return HttpResponsePermanentRedirect(reverse("radar:regiao", args=[APELIDOS[slug]]))
+        destino = reverse("radar:regiao", args=[APELIDOS[slug]])
+        qs = request.GET.urlencode()
+        return HttpResponsePermanentRedirect(f"{destino}?{qs}" if qs else destino)
     r = POR_SLUG.get(slug)
     if r is None:
         raise Http404(f"região {slug!r} não existe")
 
-    stats = estatisticas_regiao(Transacao.objects.filter(distrito_slug=slug))
+    ano = _ano_pedido(request)
+    stats = estatisticas_regiao(Transacao.objects.filter(distrito_slug=slug), ano=ano)
     destaque = _contexto_destaque(stats)
 
-    serie, _ = serie_mensal(Transacao.objects.filter(distrito_slug=slug), data_min=stats["data_min"])
+    serie, _ = serie_mensal(
+        Transacao.objects.filter(distrito_slug=slug), data_min=stats["data_min"], ano=ano
+    )
     grafico_serie = _grafico_serie(serie)
 
     # Mesma data_min da mediana acima. A lista tem stats["n_transacoes"] +
@@ -416,7 +439,9 @@ def regiao(request, slug):
     ordenar = request.GET.get("ordenar", "data")
     if ordenar not in ORDENACOES_TRANSACOES:
         ordenar = "data"
-    lista, _ = transacoes_da_regiao(Transacao.objects.filter(distrito_slug=slug), data_min=stats["data_min"])
+    lista, _ = transacoes_da_regiao(
+        Transacao.objects.filter(distrito_slug=slug), data_min=stats["data_min"], ano=ano
+    )
     lista = lista.order_by(ORDENACOES_TRANSACOES[ordenar])
     pagina = Paginator(lista, TRANSACOES_POR_PAGINA).get_page(request.GET.get("pagina"))
 
@@ -430,17 +455,23 @@ def regiao(request, slug):
             "transacoes": _transacoes_formatadas(pagina),
             "pagina": pagina,
             "ordenar": ordenar,
+            "ano": ano,
+            "anos": _anos_disponiveis(),
+            "filtro_qs": f"ano={ano}&" if ano else "",
             "transacoes_vazio_texto": f"Nenhuma transação encontrada com estes critérios em {r.nome}.",
         },
     )
 
 
-def _stats_alinhadas(slug_a, slug_b):
+def _stats_alinhadas(slug_a, slug_b, ano=None):
     """Estatísticas das duas regiões na **mesma janela** — comparar a mediana de
     um período com a de outro período diferente seria enganoso. Usa a janela
-    mais antiga das duas (ver ``estatisticas_regiao``, que já antecipa esse uso)."""
+    mais antiga das duas (ver ``estatisticas_regiao``, que já antecipa esse uso),
+    ou o mesmo ano para as duas, se houver ``ano``."""
     qs_a = Transacao.objects.filter(distrito_slug=slug_a)
     qs_b = Transacao.objects.filter(distrito_slug=slug_b)
+    if ano is not None:
+        return estatisticas_regiao(qs_a, ano=ano), estatisticas_regiao(qs_b, ano=ano)
 
     datas = [
         d
@@ -479,8 +510,12 @@ def comparar(request):
     slug_a = request.GET.get("a") or ""
     slug_b = request.GET.get("b") or ""
     canonico_a, canonico_b = APELIDOS.get(slug_a, slug_a), APELIDOS.get(slug_b, slug_b)
+    ano = _ano_pedido(request)
     if canonico_a != slug_a or canonico_b != slug_b:
-        return HttpResponsePermanentRedirect(f"{reverse('radar:comparar')}?a={canonico_a}&b={canonico_b}")
+        sufixo = f"&ano={ano}" if ano else ""
+        return HttpResponsePermanentRedirect(
+            f"{reverse('radar:comparar')}?a={canonico_a}&b={canonico_b}{sufixo}"
+        )
 
     regiao_a = POR_SLUG.get(slug_a) if slug_a else None
     regiao_b = POR_SLUG.get(slug_b) if slug_b else None
@@ -490,9 +525,10 @@ def comparar(request):
     if regiao_a is None or regiao_b is None:
         # Falta escolher um dos dois lados — não é erro, é o ponto de entrada
         # da página (ex.: link "Comparar com outra região" da página de região, só com `a`).
-        return render(request, "radar/comparar.html", {"regiao_a": regiao_a, "regiao_b": regiao_b})
+        return render(request, "radar/comparar.html",
+                      {"regiao_a": regiao_a, "regiao_b": regiao_b, "ano": ano})
 
-    stats_a, stats_b = _stats_alinhadas(slug_a, slug_b)
+    stats_a, stats_b = _stats_alinhadas(slug_a, slug_b, ano)
     diferenca = _diferenca(stats_a, stats_b)
 
     return render(
@@ -505,6 +541,8 @@ def comparar(request):
             "contexto_b": _contexto_destaque(stats_b),
             "diferenca": diferenca,
             "confianca_baixa": stats_a["confianca"] != "ok" or stats_b["confianca"] != "ok",
+            "ano": ano,
+            "anos": _anos_disponiveis(),
         },
     )
 
@@ -587,7 +625,7 @@ def pontos_regiao(request, slug):
     if POR_SLUG.get(slug) is None:
         raise Http404(f"região {slug!r} não existe")
 
-    lista, _ = transacoes_da_regiao(Transacao.objects.filter(distrito_slug=slug))
+    lista, _ = transacoes_da_regiao(Transacao.objects.filter(distrito_slug=slug), ano=_ano_pedido(request))
     lista = lista.exclude(lat__isnull=True).exclude(lon__isnull=True).order_by("-data_transacao")
     lista = lista[:LIMITE_PONTOS_MAPA]
 

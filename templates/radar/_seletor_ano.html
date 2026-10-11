@@ -1,0 +1,21 @@
+{% comment %}
+Escolha do período, reusada pela região e pela comparação. Contexto: anos, ano e
+os campos que precisam atravessar o envio (ordenar na região; a e b na comparação).
+Funciona sem JavaScript: o botão envia o formulário.
+{% endcomment %}
+{% if anos %}
+  <form class="periodo" method="get">
+    {% if ordenar %}<input type="hidden" name="ordenar" value="{{ ordenar }}">{% endif %}
+    {% if a %}<input type="hidden" name="a" value="{{ a }}">{% endif %}
+    {% if b %}<input type="hidden" name="b" value="{{ b }}">{% endif %}
+    <label class="periodo__rotulo" for="periodo-ano">período</label>
+    <select class="periodo__campo" id="periodo-ano" name="ano">
+      <option value="" {% if not ano %}selected{% endif %}>últimos 12 meses</option>
+      {% for opcao in anos %}
+        <option value="{{ opcao }}" {% if opcao == ano %}selected{% endif %}>{{ opcao }}</option>
+      {% endfor %}
+    </select>
+    <button class="periodo__botao" type="submit">Ver</button>
+    <p class="periodo__nota">Valores em reais de cada época, sem correção pela inflação.</p>
+  </form>
+{% endif %}

@@ -3,16 +3,17 @@
 Cartões + paginação de uma lista de Transacao, reusado por regiao.html (#10) e
 cep.html (#28) — mesma marcação para as duas não divergirem. Contexto esperado
 via {% include %} with: transacoes, pagina, vazio_texto e, opcionalmente,
-ordenar (nav de ordenação e "ordenar=" na paginação só aparecem se vier).
+ordenar (nav de ordenação e "ordenar=" na paginação só aparecem se vier) e
+filtro_qs ("ano=2025&", prefixado em todo link para o filtro não se perder).
 {% endcomment %}
 <section class="transacoes" aria-labelledby="transacoes-titulo">
   <div class="transacoes__cabecalho">
     <h2 id="transacoes-titulo" class="transacoes__titulo">Transações</h2>
     {% if transacoes and ordenar %}
       <nav class="transacoes__ordenar" aria-label="ordenar transações por">
-        <a href="?ordenar=data" {% if ordenar == "data" %}aria-current="true"{% endif %}>data</a>
-        <a href="?ordenar=valor" {% if ordenar == "valor" %}aria-current="true"{% endif %}>valor</a>
-        <a href="?ordenar=rsm2" {% if ordenar == "rsm2" %}aria-current="true"{% endif %}>R$/m²</a>
+        <a href="?{{ filtro_qs }}ordenar=data" {% if ordenar == "data" %}aria-current="true"{% endif %}>data</a>
+        <a href="?{{ filtro_qs }}ordenar=valor" {% if ordenar == "valor" %}aria-current="true"{% endif %}>valor</a>
+        <a href="?{{ filtro_qs }}ordenar=rsm2" {% if ordenar == "rsm2" %}aria-current="true"{% endif %}>R$/m²</a>
       </nav>
     {% endif %}
   </div>
@@ -41,13 +42,13 @@ ordenar (nav de ordenação e "ordenar=" na paginação só aparecem se vier).
     {% if pagina.paginator.num_pages > 1 %}
       <nav class="transacoes__paginacao" aria-label="paginação de transações">
         {% if pagina.has_previous %}
-          <a href="?{% if ordenar %}ordenar={{ ordenar }}&amp;{% endif %}pagina={{ pagina.previous_page_number }}">← anterior</a>
+          <a href="?{{ filtro_qs }}{% if ordenar %}ordenar={{ ordenar }}&amp;{% endif %}pagina={{ pagina.previous_page_number }}">← anterior</a>
         {% else %}
           <span class="transacoes__paginacao-desabilitado">← anterior</span>
         {% endif %}
         <span class="mono">página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
         {% if pagina.has_next %}
-          <a href="?{% if ordenar %}ordenar={{ ordenar }}&amp;{% endif %}pagina={{ pagina.next_page_number }}">próxima →</a>
+          <a href="?{{ filtro_qs }}{% if ordenar %}ordenar={{ ordenar }}&amp;{% endif %}pagina={{ pagina.next_page_number }}">próxima →</a>
         {% else %}
           <span class="transacoes__paginacao-desabilitado">próxima →</span>
         {% endif %}

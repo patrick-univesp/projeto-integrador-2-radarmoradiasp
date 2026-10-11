@@ -98,7 +98,7 @@ def _so_mercado(qs):
     return qs.filter(filtro)
 
 
-def transacoes_da_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None):
+def transacoes_da_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None, ano=None):
     """O mesmo filtro de base que sustenta a mediana — qualidade boa, uso
     residencial por padrão, janela de 12 meses (ver ``JANELA_MESES_PADRAO``) —
     mas deliberadamente **sem** exigir ``rs_m2_construido``: excluir esconderia
@@ -110,10 +110,15 @@ def transacoes_da_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=
     ``data_min=None`` (padrão) calcula a janela a partir da transação mais
     recente da região, alargando pra 24 meses se 12 tiverem poucas vendas.
     ``data_min`` explícito fixa a mesma janela entre regiões (comparação #15).
+    ``ano`` troca a janela pelo ano do negócio inteiro, e ``data_min`` vira 1º de
+    janeiro dele.
     """
     base = queryset.filter(qualidade=0)
     if uso_grupo:
         base = base.filter(uso_grupo__in=uso_grupo)
+
+    if ano is not None:
+        return base.filter(ano_transacao=ano), dt.date(ano, 1, 1)
 
     if data_min is None:
         mais_recente = base.aggregate(m=Max("data_transacao"))["m"]
@@ -128,7 +133,8 @@ def transacoes_da_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=
     return base, data_min
 
 
-def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None, so_mercado=True):
+def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None, ano=None,
+                        so_mercado=True):
     """Resumo estatístico de uma região. ``queryset`` já vem filtrado por região
     (ex.: ``Transacao.objects.filter(distrito_slug="mooca")``) — aqui entram os
     filtros de qualidade do dado, não de localização.
@@ -139,7 +145,7 @@ def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=N
 
     ``so_mercado=False`` inclui todas as naturezas (ver ``NATUREZAS_DE_MERCADO``).
     """
-    base, data_min = transacoes_da_regiao(queryset, uso_grupo=uso_grupo, data_min=data_min)
+    base, data_min = transacoes_da_regiao(queryset, uso_grupo=uso_grupo, data_min=data_min, ano=ano)
     n_fora_do_mercado = 0
     if so_mercado:
         mercado = _so_mercado(base)
@@ -202,7 +208,8 @@ def _meses_entre(inicio, fim):
     return meses
 
 
-def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None, so_mercado=True):
+def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None, ano=None,
+                 so_mercado=True):
     """Mediana mensal de R$/m² (RF8) — evolução do valor típico no tempo.
 
     Usa ``data_transacao`` (quando o negócio aconteceu), nunca ``mes_guia``
@@ -217,7 +224,7 @@ def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None, so
     janela alargada de 24 meses (região pequena): a mediana usa 24, a série
     ainda mostra 12.
     """
-    base, data_min = transacoes_da_regiao(queryset, uso_grupo=uso_grupo, data_min=data_min)
+    base, data_min = transacoes_da_regiao(queryset, uso_grupo=uso_grupo, data_min=data_min, ano=ano)
     if so_mercado:
         base = _so_mercado(base)
     pares = (
