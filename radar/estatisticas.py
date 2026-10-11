@@ -35,9 +35,9 @@ CONFIANCA_OK = "ok"
 # Os limiares de confiança acima são calibrados pra n_com_metrica de uma
 # região inteira (~2 anos somados). Um mês isolado nunca chega a 10 —
 # aplicar o mesmo limiar aqui marcaria a série inteira como fraca sempre.
-# Abaixo disso a "mediana" do mês é 1-2 valores brutos, não uma mediana de
-# verdade.
-LIMIAR_MES_FRACO = 3
+# Com menos de 10 vendas, a mediana do mês oscila mais que a tendência que a
+# série quer mostrar.
+LIMIAR_MES_FRACO = 10
 
 # A série não olha pra trás mais que isso a partir do mês mais recente com
 # dado na região. A janela da mediana pode chegar a 24 meses (JANELA_MESES_AMPLA,
