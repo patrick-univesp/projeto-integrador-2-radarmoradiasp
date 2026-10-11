@@ -12,6 +12,7 @@ from radar.estatisticas import (
     CONFIANCA_INSUFICIENTE,
     CONFIANCA_OK,
     LIMIAR_MES_FRACO,
+    NATUREZAS_DE_MERCADO,
     estatisticas_regiao,
     serie_mensal,
     transacoes_da_regiao,
@@ -35,6 +36,7 @@ def _transacao(**over):
         "uso_grupo": "Apartamento / res. vertical",
         "rs_m2_construido": Decimal("10000"),
         "qualidade": 0,
+        "natureza": "1.Compra e venda",
     }
     campos.update(over)
     return Transacao.objects.create(**campos)
@@ -338,3 +340,82 @@ def test_serie_mensal_respeita_o_mesmo_filtro_de_base():
     _transacao(data_transacao=dt.date(2026, 1, 10), qualidade=1)
     serie, _ = serie_mensal(Transacao.objects.all())
     assert serie[0]["n_transacoes"] == 1
+
+
+# --- só natureza de mercado na mediana ---------------------------------------
+
+
+@pytest.mark.django_db
+def test_leilao_nao_move_a_mediana_e_e_contado_a_parte():
+    for _ in range(30):
+        _transacao(rs_m2_construido=Decimal("5000"))
+    _transacao(rs_m2_construido=Decimal("1000"), natureza="4.Arrematação (em leilão ou hasta pública)")
+    r = estatisticas_regiao(Transacao.objects.all())
+    assert r["mediana_rs_m2"] == Decimal("5000")
+    assert r["p25_rs_m2"] == Decimal("5000")
+    assert r["n_com_metrica"] == 30
+    assert r["n_fora_do_mercado"] == 1
+
+
+@pytest.mark.django_db
+def test_lista_da_regiao_continua_com_todas_as_naturezas():
+    _transacao()
+    _transacao(natureza="17.Resolução da alienação fiduciária por inadimplemento")
+    lista, _ = transacoes_da_regiao(Transacao.objects.all())
+    assert lista.count() == 2
+
+
+@pytest.mark.django_db
+def test_codigo_de_mercado_nao_casa_com_prefixo_de_outro():
+    assert 1 in NATUREZAS_DE_MERCADO and 10 not in NATUREZAS_DE_MERCADO
+    _transacao(rs_m2_construido=Decimal("5000"))
+    _transacao(rs_m2_construido=Decimal("1000"), natureza="10.Cessão dos direitos do arrematante")
+    r = estatisticas_regiao(Transacao.objects.all())
+    assert r["n_com_metrica"] == 1
+    assert r["n_fora_do_mercado"] == 1
+
+
+@pytest.mark.django_db
+def test_so_mercado_false_inclui_todas_as_naturezas():
+    _transacao(rs_m2_construido=Decimal("5000"))
+    _transacao(rs_m2_construido=Decimal("1000"), natureza="12.Dação em pagamento por escritura pública")
+    r = estatisticas_regiao(Transacao.objects.all(), so_mercado=False)
+    assert r["n_com_metrica"] == 2
+    assert r["n_fora_do_mercado"] == 0
+
+
+@pytest.mark.django_db
+def test_confianca_e_calculada_sobre_a_base_ja_filtrada():
+    for _ in range(9):
+        _transacao()
+    for _ in range(5):
+        _transacao(natureza="15.Permuta por escritura pública")
+    assert estatisticas_regiao(Transacao.objects.all())["confianca"] == CONFIANCA_INSUFICIENTE
+
+
+@pytest.mark.django_db
+def test_serie_mensal_exclui_natureza_fora_do_mercado():
+    _transacao(rs_m2_construido=Decimal("5000"))
+    _transacao(rs_m2_construido=Decimal("1000"), natureza="4.Arrematação (em leilão ou hasta pública)")
+    serie, _ = serie_mensal(Transacao.objects.all())
+    assert serie[-1]["n_transacoes"] == 1
+    assert serie[-1]["mediana_rs_m2"] == Decimal("5000")
+
+
+# --- referência da Prefeitura -------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_pct_pela_referencia_conta_base_acima_do_declarado():
+    for _ in range(6):
+        _transacao(vvr_proporcional=Decimal("400000"))
+    for _ in range(4):
+        _transacao(valor_transacao=Decimal("300000"), base_calculo=Decimal("400000"),
+                   vvr_proporcional=Decimal("400000"))
+    assert estatisticas_regiao(Transacao.objects.all())["pct_pela_referencia"] == 40
+
+
+@pytest.mark.django_db
+def test_pct_pela_referencia_e_none_sem_vvr():
+    _transacao()
+    assert estatisticas_regiao(Transacao.objects.all())["pct_pela_referencia"] is None

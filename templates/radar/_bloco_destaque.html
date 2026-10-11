@@ -30,5 +30,17 @@
 <ul class="regiao__ressalvas">
   <li>Esta área é a do cadastro do IPTU e inclui a quota-parte de áreas comuns, então este valor fica
     naturalmente abaixo de índices de anúncio como o FipeZap.</li>
+  <li>Valor de imóveis usados. Unidades vendidas em empreendimento novo não entram, porque a guia não
+    traz a área de cada unidade.</li>
+  {% if stats.pct_pela_referencia is not None %}
+    <li>Em {{ stats.pct_pela_referencia|floatformat:0 }}% destas vendas o valor considerado é a
+      <a href="{% url 'radar:como_funciona' %}#referencia">referência da Prefeitura</a>, porque o valor
+      declarado ficou abaixo dela.</li>
+  {% endif %}
+  {% if stats.n_fora_do_mercado %}
+    <li>{{ stats.n_fora_do_mercado }} venda{{ stats.n_fora_do_mercado|pluralize }} de leilão, retomada pelo
+      banco, permuta e outros negócios que não são compra e venda não
+      entra{{ stats.n_fora_do_mercado|pluralize:"m" }} no valor típico.</li>
+  {% endif %}
   {% if periodo %}<li>Período coberto pelos dados: {{ periodo }}.</li>{% endif %}
 </ul>

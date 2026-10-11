@@ -9,7 +9,7 @@ import datetime as dt
 import statistics
 from collections import defaultdict
 
-from django.db.models import Max
+from django.db.models import F, Max, Q
 
 # "Radar da Moradia": a mediana é de imóvel residencial. Sem este filtro, garagem,
 # loja e indústria entrariam misturadas com casa e apartamento — achado em
@@ -24,6 +24,13 @@ USO_GRUPO_RESIDENCIAL = ("Casa / residência horizontal", "Apartamento / res. ve
 JANELA_MESES_PADRAO = 12
 JANELA_MESES_AMPLA = 24
 LIMIAR_JANELA_AMPLA = 30
+
+# Só negócio de mercado entra na mediana: compra e venda e cessão de direitos de
+# compra. Leilão, retomada pelo banco, dação, permuta, integralização de capital e
+# afins têm preço que não é o de uma venda comum (o leilão fecha ~45% abaixo).
+# Essas linhas continuam na lista e no detalhe; só saem do cálculo. Lista de
+# inclusão de propósito: um código novo na planilha fica fora até alguém olhar.
+NATUREZAS_DE_MERCADO = (1, 2, 26, 35)
 
 LIMITE_CONFIANCA_INSUFICIENTE = 10
 LIMITE_CONFIANCA_BAIXA = 30
@@ -83,13 +90,22 @@ def _na_janela(qs, data_min):
     return qs.filter(ano_transacao__gte=data_min.year, data_transacao__gte=data_min)
 
 
+def _so_mercado(qs):
+    # Com o ponto: "1." não pode casar "10." nem "17.".
+    filtro = Q()
+    for codigo in NATUREZAS_DE_MERCADO:
+        filtro |= Q(natureza__startswith=f"{codigo}.")
+    return qs.filter(filtro)
+
+
 def transacoes_da_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None):
     """O mesmo filtro de base que sustenta a mediana — qualidade boa, uso
     residencial por padrão, janela de 12 meses (ver ``JANELA_MESES_PADRAO``) —
     mas deliberadamente **sem** exigir ``rs_m2_construido``: excluir esconderia
     um SQL com cadastro defasado (``referencia-itbi.md`` §2.4) que tem
     ``valor_transacao`` real e só não tem R$/m² calculável. Fonte única para
-    ``estatisticas_regiao`` e para a lista de transações da #10 não divergirem.
+    ``estatisticas_regiao`` e para a lista de transações, que só divergem num
+    ponto: a lista mostra todas as naturezas, a mediana só as de mercado.
 
     ``data_min=None`` (padrão) calcula a janela a partir da transação mais
     recente da região, alargando pra 24 meses se 12 tiverem poucas vendas.
@@ -112,7 +128,7 @@ def transacoes_da_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=
     return base, data_min
 
 
-def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None):
+def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None, so_mercado=True):
     """Resumo estatístico de uma região. ``queryset`` já vem filtrado por região
     (ex.: ``Transacao.objects.filter(distrito_slug="mooca")``) — aqui entram os
     filtros de qualidade do dado, não de localização.
@@ -120,8 +136,15 @@ def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=N
     ``data_min=None`` (padrão) usa a janela de 12 meses da transação mais
     recente **nesta região** (ver ``transacoes_da_regiao``). Passar ``data_min``
     explícito fixa a mesma janela entre regiões — necessário para comparação (#15).
+
+    ``so_mercado=False`` inclui todas as naturezas (ver ``NATUREZAS_DE_MERCADO``).
     """
     base, data_min = transacoes_da_regiao(queryset, uso_grupo=uso_grupo, data_min=data_min)
+    n_fora_do_mercado = 0
+    if so_mercado:
+        mercado = _so_mercado(base)
+        n_fora_do_mercado = base.count() - mercado.count()
+        base = mercado
 
     n_transacoes = base.count()
     valores_transacao = list(base.values_list("valor_transacao", flat=True))
@@ -131,6 +154,17 @@ def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=N
     n_com_metrica = com_metrica.count()
     valores_m2 = list(com_metrica.values_list("rs_m2_construido", flat=True))
     p25_rs_m2, mediana_rs_m2, p75_rs_m2 = _mediana_e_quartis(valores_m2)
+
+    # A base de cálculo do imposto é o maior entre o declarado e a referência da
+    # Prefeitura; quando o declarado fica abaixo, o R$/m² é a referência, não o
+    # preço pago. A tela diz em quantas vendas isso aconteceu.
+    com_referencia = com_metrica.filter(vvr_proporcional__gt=0)
+    n_com_referencia = com_referencia.count()
+    pct_pela_referencia = (
+        com_referencia.filter(base_calculo__gt=F("valor_transacao") + 1).count() / n_com_referencia * 100
+        if n_com_referencia
+        else None
+    )
 
     areas = list(com_metrica.exclude(area_construida__isnull=True).values_list("area_construida", flat=True))
     area_mediana = statistics.median(areas) if areas else None
@@ -142,6 +176,8 @@ def estatisticas_regiao(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=N
         "data_min": data_min,
         "n_transacoes": n_transacoes,
         "n_com_metrica": n_com_metrica,
+        "n_fora_do_mercado": n_fora_do_mercado,
+        "pct_pela_referencia": pct_pela_referencia,
         "mediana_rs_m2": mediana_rs_m2,
         "p25_rs_m2": p25_rs_m2,
         "p75_rs_m2": p75_rs_m2,
@@ -166,7 +202,7 @@ def _meses_entre(inicio, fim):
     return meses
 
 
-def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None):
+def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None, so_mercado=True):
     """Mediana mensal de R$/m² (RF8) — evolução do valor típico no tempo.
 
     Usa ``data_transacao`` (quando o negócio aconteceu), nunca ``mes_guia``
@@ -182,6 +218,8 @@ def serie_mensal(queryset, *, uso_grupo=USO_GRUPO_RESIDENCIAL, data_min=None):
     ainda mostra 12.
     """
     base, data_min = transacoes_da_regiao(queryset, uso_grupo=uso_grupo, data_min=data_min)
+    if so_mercado:
+        base = _so_mercado(base)
     pares = (
         base.exclude(data_transacao__isnull=True)
         .filter(rs_m2_construido__isnull=False)

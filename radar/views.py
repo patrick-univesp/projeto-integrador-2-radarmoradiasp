@@ -410,8 +410,9 @@ def regiao(request, slug):
     serie, _ = serie_mensal(Transacao.objects.filter(distrito_slug=slug), data_min=stats["data_min"])
     grafico_serie = _grafico_serie(serie)
 
-    # Mesma data_min da mediana acima: a soma dos itens paginados bate com
-    # stats["n_transacoes"] porque é o mesmo filtro, só reordenado.
+    # Mesma data_min da mediana acima. A lista tem stats["n_transacoes"] +
+    # stats["n_fora_do_mercado"] itens: leilão, retomada etc. aparecem aqui,
+    # só não entram no valor típico.
     ordenar = request.GET.get("ordenar", "data")
     if ordenar not in ORDENACOES_TRANSACOES:
         ordenar = "data"

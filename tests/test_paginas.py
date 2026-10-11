@@ -160,6 +160,7 @@ def _transacao_regiao(**over):
         "uso_grupo": "Apartamento / res. vertical",
         "rs_m2_construido": Decimal("10000"),
         "qualidade": 0,
+        "natureza": "1.Compra e venda",
     }
     campos.update(over)
     from radar.models import Transacao
@@ -178,6 +179,21 @@ def test_regiao_mostra_valor_tipico_faixa_e_confianca(client):
     assert "baseado em 30 transações" in corpo
     assert 'class="aviso"' not in corpo
     assert 'class="faixa"' in corpo
+
+
+@pytest.mark.django_db
+def test_regiao_explica_o_que_o_valor_tipico_e(client):
+    for _ in range(27):
+        _transacao_regiao(vvr_proporcional=Decimal("400000"))
+    for _ in range(3):
+        _transacao_regiao(valor_transacao=Decimal("300000"), vvr_proporcional=Decimal("400000"))
+    _transacao_regiao(natureza="4.Arrematação (em leilão ou hasta pública)")
+    corpo = " ".join(client.get(reverse("radar:regiao", args=["mooca"])).content.decode().split())
+    assert "Valor de imóveis usados" in corpo
+    assert "Em 10% destas vendas" in corpo
+    assert "#referencia" in corpo
+    assert "1 venda de leilão" in corpo
+    assert "não entra no valor típico" in corpo
 
 
 @pytest.mark.django_db

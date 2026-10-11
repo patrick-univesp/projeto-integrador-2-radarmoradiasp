@@ -222,6 +222,11 @@
             quando a guia transfere o imóvel inteiro: se alguém comprou metade de um apartamento, dividir o
             valor pela área toda daria um metro quadrado pela metade do preço.
           </p>
+          <p id="referencia">
+            A base de cálculo é o maior entre o valor que o comprador declarou e a referência da Prefeitura para
+            aquele imóvel. Quando o declarado fica abaixo, o metro quadrado sai da referência, não do preço pago,
+            e a página de cada região diz em quantas vendas isso aconteceu.
+          </p>
           <p class="estacao__base">
             <strong>{{ com_rs_m2 }}</strong> linhas ganharam R$/m². As outras são terrenos, frações de imóvel ou
             guias sem área, e ficam sem número: nunca com zero, que puxaria a mediana da região para baixo.
@@ -299,6 +304,10 @@
             Antes de gravar, seis testes procuram sinais de linha com defeito. Cada teste que falha acende uma
             luz, e cada luz vale uma potência de dois. A soma vira um número só: <strong>0</strong> quer dizer
             que nada acendeu. Linha com qualquer luz acesa é gravada, mas fica fora da mediana.
+          </p>
+          <p>
+            Leilão, retomada pelo banco, permuta e outros negócios que não são compra e venda também ficam fora
+            da mediana, mesmo sem luz acesa: o preço deles não é o de uma venda comum.
           </p>
           <p class="estacao__base">
             Nossa linha passou nos seis. Na base, <strong>{{ com_ressalva }}</strong> linhas ({{ com_ressalva_pct }})

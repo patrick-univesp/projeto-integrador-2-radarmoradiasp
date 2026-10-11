@@ -162,6 +162,40 @@ desvio de uma única linha. `linha_deslocada` já detecta e marca essa linha via
 
 ---
 
+## O que entra na mediana, e o que a tela diz sobre ela
+
+A carga grava toda linha; quem decide o que entra no valor típico é
+`radar/estatisticas.py`, na leitura. Nada abaixo exige recarregar o banco.
+
+- **Só natureza de mercado.** `NATUREZAS_DE_MERCADO = (1, 2, 26, 35)`: compra e venda
+  e as cessões de direitos de compra. Leilão, retomada do imóvel pelo banco, dação em
+  pagamento, permuta, integralização de capital, sentença judicial e afins ficam fora
+  do cálculo, porque o preço deles não é o de uma venda comum (o leilão fecha bem
+  abaixo). É uma lista de inclusão: um código novo que apareça na planilha fica fora
+  até alguém decidir. O filtro casa o prefixo **com o ponto** (`"1."`), para `1` não
+  pegar `10.` ou `17.`. Essas linhas **continuam** na lista da região e na página da
+  transação; a região informa quantas ficaram fora. Não viram bit de `qualidade`,
+  porque a linha não tem defeito.
+- **A referência da Prefeitura.** `base_calculo = max(valor declarado, VVR
+  proporcional)`, e o R$/m² é calculado sobre a base. Quando o declarado ficou abaixo da
+  referência, o número que entra na mediana é a referência, não o preço pago. O cálculo
+  continua sobre a base (usar o declarado deixaria a mediana menor e mais suja de
+  valores subdeclarados); a região mostra a proporção dessas vendas
+  (`pct_pela_referencia`: `base_calculo > valor_transacao + 1` entre as linhas com VVR).
+  Na periferia ela passa de 40%; nos distritos centrais fica perto de 15%.
+- **Imóvel usado.** Unidade vendida em empreendimento novo não tem a área da unidade na
+  guia (só o terreno, com proporção transmitida pequena), então não ganha R$/m² e não
+  entra na mediana. A página da região diz isso.
+- **Mês fraco na série.** A série mensal marca como pouco confiável o mês com menos de
+  `LIMIAR_MES_FRACO = 10` vendas.
+- **O degrau de janeiro.** A referência da Prefeitura é reajustada todo ano, e as vendas
+  tributadas pela referência sobem junto. Por isso a série mensal dá um degrau de
+  dezembro para janeiro que é, em boa parte, reajuste de tabela, não valorização. A
+  série continua com a mesma definição da mediana; quem ler variação entre meses que
+  cruzam janeiro precisa descontar isso.
+
+---
+
 ## Como estender
 
 | Mudança                            | Onde                                       | Cuidado                                                                       |
