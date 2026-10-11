@@ -96,14 +96,14 @@
         <figure class="estacao__visual abas">
           <ol class="abas__barras" data-escalonar>
             {% for m in meses %}
-              <li class="abas__mes{% if m.exemplo %} abas__mes--exemplo{% endif %}">
-                <span class="abas__n">{{ m.n }}</span>
-                <svg class="abas__barra" aria-hidden="true"><rect class="abas__preenchimento" x="0" y="{{ m.topo }}%" width="100%" height="{{ m.altura }}%" /></svg>
-                <span class="abas__rotulo">{{ m.mes }}<span class="abas__ano">-{{ m.ano }}</span></span>
+              <li class="abas__mes{% if m.exemplo %} abas__mes--exemplo{% endif %}{% if m.inicio_ano %} abas__mes--ano{% endif %}">
+                <span class="abas__n">{{ m.n }}<span class="visualmente-oculto"> linhas em {{ m.aba }}</span></span>
+                <svg class="abas__barra" aria-hidden="true"><title>{{ m.aba }}: {{ m.n }} linhas</title><rect class="abas__preenchimento" x="0" y="{{ m.topo }}%" width="100%" height="{{ m.altura }}%" /></svg>
+                <span class="abas__rotulo" aria-hidden="true">{% if m.inicio_ano %}{{ m.ano }}{% elif m.exemplo %}{{ m.mes }}{% endif %}</span>
               </li>
             {% endfor %}
           </ol>
-          <figcaption class="estacao__legenda">Linhas por aba, na base de hoje.</figcaption>
+          <figcaption class="estacao__legenda">Linhas por aba (um mês de guias cada), na base de hoje. Em destaque, {{ aba_exemplo }}, o mês da linha que esta página segue.</figcaption>
         </figure>
       </div>
     </li>

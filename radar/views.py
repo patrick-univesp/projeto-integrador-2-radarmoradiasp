@@ -800,8 +800,11 @@ def como_funciona(request):
             "altura": round(n / maior_mes * 100) if maior_mes else 0,
             "topo": 100 - (round(n / maior_mes * 100) if maior_mes else 0),
             "exemplo": (a, m) == (t.ano_guia, t.mes_guia),
+            # Com anos de base, um rótulo por mês não cabe: o eixo marca só o começo de
+            # cada ano (e o primeiro mês, se a base não começar em janeiro).
+            "inicio_ano": m == 1 or i == 0,
         }
-        for a, m, n in base["por_mes"]
+        for i, (a, m, n) in enumerate(base["por_mes"])
     ]
     n_mes_exemplo = next(
         (n for a, m, n in base["por_mes"] if (a, m) == (t.ano_guia, t.mes_guia)), 0
