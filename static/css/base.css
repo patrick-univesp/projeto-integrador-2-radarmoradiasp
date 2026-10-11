@@ -120,27 +120,6 @@ main {
 .topo__link { color: var(--text-2); }
 .topo__link:hover { color: var(--accent-ink); }
 
-.topo__botao {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 36px;
-  padding-inline: var(--e-4);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--raio-botao);
-  background: var(--surface);
-  color: var(--text);
-  font-size: var(--t-apoio);
-  font-weight: var(--peso-forte);
-  text-decoration: none;
-  cursor: pointer;
-}
-.topo__botao:hover {
-  border-color: var(--accent);
-  color: var(--accent-ink);
-  text-decoration: none;
-}
-
 @media (max-width: 719px) {
   .topo__link { display: none; }
 }

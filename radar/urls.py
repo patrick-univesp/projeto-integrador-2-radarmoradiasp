@@ -14,5 +14,4 @@ urlpatterns = [
     path("cep/<str:cep>/", views.cep, name="cep"),
     path("transacao/<int:id>/", views.transacao, name="transacao"),
     path("como-funciona/", views.como_funciona, name="como_funciona"),
-    path("entrar/", views.entrar, name="entrar"),
 ]

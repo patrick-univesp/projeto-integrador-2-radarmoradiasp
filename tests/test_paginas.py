@@ -926,14 +926,16 @@ def test_transacao_sem_ilustracao_para_uso_desconhecido(client):
 
 
 @pytest.mark.django_db
-def test_inicio_tem_botao_entrar(client):
+def test_cabecalho_nao_tem_link_para_login(client):
+    """O portal é de consulta anônima: não há conta de usuário. O botão "Entrar"
+    levava a um 404 em todas as páginas; o admin tem porta própria."""
     corpo = client.get(reverse("radar:inicio")).content.decode()
-    assert 'href="/entrar/"' in corpo
-    assert "Entrar" in corpo
+    assert "/entrar/" not in corpo
+    assert "topo__botao" not in corpo
 
 
-def test_entrar_renderiza_pagina_erro(client):
-    r = client.get(reverse("radar:entrar"))
+def test_url_inexistente_renderiza_pagina_404(client):
+    r = client.get("/entrar/")
     assert r.status_code == 404
     assert "Esta página não existe" in r.content.decode()
 
