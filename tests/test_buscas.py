@@ -110,3 +110,16 @@ def test_sugerir_ruas_ignora_termo_curto():
     from radar.buscas import sugerir_ruas
 
     assert sugerir_ruas("ru") == []
+
+
+@pytest.mark.django_db
+def test_lista_vencida_responde_a_antiga_e_renova_em_segundo_plano(monkeypatch):
+    from radar import buscas
+
+    chamadas = []
+    buscas._memo["teste"] = (["velha"], 0.0)  # carimbo no passado: vencida
+    monkeypatch.setattr(buscas.threading, "Thread", lambda target, args, daemon: type(
+        "T", (), {"start": lambda self: target(*args)})())
+    assert buscas._memorizado("teste", lambda: chamadas.append(1) or ["nova"]) == ["velha"]
+    assert buscas._memo["teste"][0] == ["nova"]
+    assert chamadas == [1]
