@@ -60,8 +60,13 @@ def para_cep(v) -> str:
 def para_numero_porta(v) -> str:
     """Número de porta como texto, sem zeros à esquerda. ``0`` e ``99999`` são
     os códigos de "sem numeração" → ``''``. Preserva número com letra."""
-    if v is None:
+    if v is None or isinstance(v, bool):
         return ""
+    # Número antes de texto, como em para_numero: a planilha de 2024 grava a porta
+    # como decimal (295.0), e o ponto tratado como milhar dava "2950".
+    if isinstance(v, (int, float)):
+        n = int(v)
+        return "" if n in (0, 99999) else str(n)
     s = str(v).strip()
     if not s:
         return ""

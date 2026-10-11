@@ -53,6 +53,13 @@ def test_para_numero_porta():
     assert para_numero_porta("71A") == "71A"
 
 
+def test_para_numero_porta_aceita_decimal():
+    # A planilha de 2024 grava a porta como decimal; o ponto não é milhar aqui.
+    assert para_numero_porta(295.0) == "295"
+    assert para_numero_porta(99999.0) == ""
+    assert para_numero_porta(0.0) == ""
+
+
 def test_para_data():
     assert para_data(dt.datetime(2026, 1, 21, 0, 0)) == dt.date(2026, 1, 21)
     assert para_data(dt.date(2025, 8, 29)) == dt.date(2025, 8, 29)
