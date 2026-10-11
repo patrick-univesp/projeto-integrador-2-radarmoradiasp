@@ -11,12 +11,14 @@ from radar.carga.normalizacao import normalizar, normalizar_logradouro
 from radar.models import Transacao
 from radar.regioes import POR_SLUG
 
-# Bairros e ruas distintos, com a contagem, ficam em memória em cada worker: filtrar
-# algumas dezenas de milhares de nomes em Python leva milissegundos, contra ~0,7 s de
-# LIKE + GROUP BY sobre a base inteira a cada tecla (medido em produção com 780 mil
-# transações, 11/10/2026). Passada a validade, a lista antiga continua respondendo
-# enquanto uma thread monta a nova: só a primeira consulta depois de subir o worker
-# espera. Uma carga nova aparece nas sugestões em até uma hora.
+# As ruas distintas, com a contagem, ficam em memória em cada worker: filtrar algumas
+# dezenas de milhares de nomes em Python leva milissegundos, contra ~0,7 s de LIKE +
+# GROUP BY sobre a base inteira a cada tecla (medido em produção com 780 mil
+# transações, 11/10/2026). A lista sai inteira do índice de logradouro_norm, lido em
+# sequência. Os bairros NÃO entram aqui: a contagem por bairro precisa do distrito, que
+# não está no índice, e montar a lista inteira lia a tabela linha a linha — 48 s na VM
+# com o cache do disco frio. Passada a validade, a lista antiga continua respondendo
+# enquanto uma thread monta a nova. Uma carga nova aparece nas sugestões em até uma hora.
 VALIDADE_SEGUNDOS = 3600
 _memo = {}
 _renovando = set()
@@ -39,14 +41,6 @@ def _memorizado(nome, calcular):
         _renovando.add(nome)
         threading.Thread(target=_renovar, args=(nome, calcular), daemon=True).start()
     return valor
-
-
-def _bairros():
-    return list(
-        Transacao.objects.exclude(bairro_norm="").exclude(distrito_slug="")
-        .values_list("bairro_norm", "distrito_slug")
-        .annotate(n=Count("id"))
-    )
 
 
 def _ruas():
@@ -72,10 +66,16 @@ def _por_distrito(termo_norm):
 
 
 def _por_bairro(termo_norm):
+    linhas = (
+        Transacao.objects.filter(bairro_norm__startswith=termo_norm)
+        .exclude(distrito_slug="")
+        .values_list("bairro_norm", "distrito_slug")
+        .annotate(n=Count("id"))
+    )
+
     por_bairro = {}
-    for bairro, distrito_slug, n in _memorizado("bairros", _bairros):
-        if bairro.startswith(termo_norm):
-            por_bairro.setdefault(bairro, Counter())[distrito_slug] += n
+    for bairro, distrito_slug, n in linhas:
+        por_bairro.setdefault(bairro, Counter())[distrito_slug] += n
 
     resultados = {}
     for contagem_por_distrito in por_bairro.values():
