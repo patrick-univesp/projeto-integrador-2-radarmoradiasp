@@ -46,8 +46,6 @@ css/transicao.css é só da transição cinematográfica, desligada por enquanto
         <ul id="sugestoes-lista" class="sugestoes" role="listbox" aria-label="Sugestões de região" hidden></ul>
       </form>
 
-      <p class="hero__mapa"><a href="{% url 'radar:mapa' %}">Ver todos os distritos no mapa de São Paulo →</a></p>
-
       {% if periodo %}
         <p class="hero__base">
           <strong data-contador="{{ n_vendas }}">{{ total_vendas }}</strong> transações reais, de {{ periodo }}.
@@ -60,6 +58,18 @@ css/transicao.css é só da transição cinematográfica, desligada por enquanto
           {% for r in regioes_destaque %}
             <a class="atalho" href="{% url 'radar:regiao' r.slug %}">{{ r.nome }}</a>
           {% endfor %}
+        </div>
+        <div class="atalhos hero__explorar">
+          <span class="mono hero__atalhos-titulo">ou explore</span>
+          <a class="atalho atalho--mapa" href="{% url 'radar:mapa' %}">
+            <svg class="atalho__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z" />
+              <path d="M9 4v13" />
+              <path d="M15 7v13" />
+            </svg>
+            Mapa de São Paulo
+          </a>
         </div>
       </div>
     </div>

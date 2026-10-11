@@ -279,6 +279,16 @@ main {
   color: var(--accent-ink);
   text-decoration: none;
 }
+/* O mapa não é mais uma região: contorno e tinta de destaque, e um ícone, para não
+ * se confundir com os atalhos de bairro ao lado. */
+.atalho--mapa {
+  gap: var(--e-2);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: var(--peso-forte);
+}
+.atalho--mapa:hover { background: var(--accent-soft); }
+.atalho__icone { width: 18px; height: 18px; flex: none; }
 
 .hero-area {
   position: relative;
@@ -402,11 +412,8 @@ main {
   color: var(--text);
   font-variant-numeric: tabular-nums; /* dígito não muda de largura durante a contagem */
 }
-.hero__mapa {
-  margin-top: var(--e-4);
-  font-size: .9375rem;
-}
 .hero__atalhos { margin-top: var(--e-6); }
+.hero__explorar { margin-top: var(--e-4); }
 .hero__atalhos-titulo { flex: 1 0 100%; margin-bottom: var(--e-1); }
 
 .contexto {
