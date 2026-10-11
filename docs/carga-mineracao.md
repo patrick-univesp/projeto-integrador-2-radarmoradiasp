@@ -188,6 +188,13 @@ A carga grava toda linha; quem decide o que entra no valor típico é
   entra na mediana. A página da região diz isso.
 - **Mês fraco na série.** A série mensal marca como pouco confiável o mês com menos de
   `LIMIAR_MES_FRACO = 10` vendas.
+- **Data do negócio depois do mês da guia não é erro.** 1,6% das linhas (12.206 nas
+  planilhas de 2023 a ago/2026) têm a data do negócio no mês seguinte ao do pagamento da
+  guia, e todas caem nos primeiros sete dias desse mês (90% até o dia 5): a guia do
+  ITBI é paga e, dias depois, a escritura é assinada, e a data do negócio é a da
+  escritura. Essas linhas entram no cálculo normalmente. Por isso o período de uma
+  região pode terminar no mês seguinte ao da última guia carregada, e esse último mês
+  da série sempre fica incompleto.
 - **O degrau de janeiro.** A referência da Prefeitura é reajustada todo ano, e as vendas
   tributadas pela referência sobem junto. Por isso a série mensal dá um degrau de
   dezembro para janeiro que é, em boa parte, reajuste de tabela, não valorização. A
