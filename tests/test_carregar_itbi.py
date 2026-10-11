@@ -397,3 +397,31 @@ def test_coluna_desconhecida_e_ignorada_e_listada(tmp_path):
 def test_coluna_repetida_e_recusada():
     with pytest.raises(CommandError, match="aparece duas vezes"):
         cmd._mapa_de_colunas(CABECALHO + ["Bairro"], "JAN-2026")
+
+
+@pytest.mark.django_db
+def test_coluna_repetida_que_a_carga_nao_usa_e_ignorada(tmp_path):
+    # NOV-2023: "ACC (IPTU)" duas vezes, no lugar da descrição do padrão.
+    cabecalho = list(CABECALHO)
+    cabecalho[cmd.C_PADRDESC] = "ACC (IPTU)"
+    r = carregar(_planilha(tmp_path, {"NOV-2023": (cabecalho, [_LINHA_CABECALHO])}), base_dir_geo=str(GEO))
+    assert r["total"]["gravadas"] == 1
+    assert r["colunas_ignoradas"] == {"NOV-2023": ["ACC (IPTU) (repetida)"]}
+
+
+@pytest.mark.django_db
+def test_aba_sem_cabecalho_le_a_primeira_linha_como_dado(tmp_path):
+    # JAN-2024: a primeira linha já é transação, e o cabeçalho aparece no meio.
+    outra = list(_LINHA_CABECALHO)
+    outra[cmd.C_SQL] = 66666666666
+    arquivo = _planilha(tmp_path, {"JAN-2024": (_LINHA_CABECALHO, [CABECALHO, outra])})
+    r = carregar(arquivo, base_dir_geo=str(GEO))
+    assert r["abas_sem_cabecalho"] == ["JAN-2024"]
+    assert r["total"]["gravadas"] == 2
+    assert r["total"]["descartadas"] == 0  # o cabeçalho do meio é pulado, não descartado
+    assert set(Transacao.objects.values_list("sql", flat=True)) == {"55555555555", "66666666666"}
+
+
+def test_primeira_linha_que_nao_e_cabecalho_nem_dado_e_recusada():
+    with pytest.raises(CommandError, match="nem uma transação reconhecível"):
+        cmd._mapa_de_colunas(["x"] * 28, "JAN-2024")

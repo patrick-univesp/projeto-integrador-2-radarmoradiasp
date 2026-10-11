@@ -82,25 +82,60 @@ def _chave(texto):
     return " ".join(re.sub(r"[^A-Z0-9]+", " ", sem_acento.upper()).split())
 
 
+def _parece_linha_de_dados(linha):
+    """A linha é uma transação na ordem padrão? Confere três colunas de tipo
+    inconfundível: SQL na A, natureza "N." na H e data na J."""
+    return (
+        len(linha) >= len(CABECALHOS)
+        and bool(coercao.para_sql(linha[C_SQL]))
+        and bool(re.match(r"\s*\d+\s*\.", str(linha[C_NATUREZA] or "")))
+        and coercao.para_data(linha[C_DATA]) is not None
+    )
+
+
+def _eh_linha_de_cabecalho(linha):
+    """Cabeçalho repetido no meio da aba (JAN e OUT-2024 o têm perto do fim, sinal de
+    planilha montada colando pedaços). O SQL numérico é o caso comum e sai cedo."""
+    sql = linha[C_SQL] if linha else None
+    if not isinstance(sql, str) or sql.strip().isdigit():
+        return False
+    return sum(1 for c in linha if c is not None and _chave(c) in _POR_CABECALHO) >= 10
+
+
 def _mapa_de_colunas(cabecalho, aba):
     """Para cada posição canônica, o índice da coluna na aba (``None`` se faltar).
-    Devolve também os cabeçalhos que a carga não conhece, para o resumo."""
+    Devolve também os cabeçalhos ignorados, para o resumo, e se a aba não tem
+    cabeçalho: quando a primeira linha já é uma transação na ordem padrão (JAN e
+    OUT-2024), ela é lida como dado, e a ordem é a padrão."""
+    if not any(c is not None and _chave(c) in _POR_CABECALHO for c in cabecalho):
+        if _parece_linha_de_dados(cabecalho):
+            return _ORDEM_PADRAO, [], True
+        raise CommandError(f"aba {aba}: a primeira linha não é cabeçalho nem uma transação reconhecível")
+
     indices = [None] * len(CABECALHOS)
-    ignoradas = []
+    ignoradas, repetidas = [], set()
     for i, celula in enumerate(cabecalho):
         if celula is None or not str(celula).strip():
             continue
         pos = _POR_CABECALHO.get(_chave(celula))
         if pos is None:
             ignoradas.append(str(celula).strip())
-        elif indices[pos] is not None:
-            raise CommandError(f"aba {aba}: a coluna {celula!r} aparece duas vezes")
+        elif pos in repetidas or indices[pos] is not None:
+            # Repetida numa coluna que a carga grava: não há como saber qual vale.
+            # Numa que ela não usa (NOV-2023 traz "ACC (IPTU)" duas vezes no lugar
+            # da descrição do padrão), basta ignorar as duas.
+            if pos in OBRIGATORIAS:
+                raise CommandError(f"aba {aba}: a coluna {celula!r} aparece duas vezes")
+            if pos not in repetidas:
+                repetidas.add(pos)
+                indices[pos] = None
+                ignoradas.append(f"{str(celula).strip()} (repetida)")
         else:
             indices[pos] = i
     faltando = [CABECALHOS[pos][0] for pos in sorted(OBRIGATORIAS) if indices[pos] is None]
     if faltando:
         raise CommandError(f"aba {aba}: faltam as colunas {', '.join(faltando)}")
-    return tuple(indices), ignoradas
+    return tuple(indices), ignoradas, False
 
 
 def _reordenar(bruta, indices):
@@ -108,6 +143,7 @@ def _reordenar(bruta, indices):
         return bruta[:len(indices)]
     n = len(bruta)
     return tuple(bruta[i] if i is not None and i < n else None for i in indices)
+
 
 BLOCOS_PADRAO = 2000
 
@@ -202,7 +238,7 @@ def _zero():
     return dict.fromkeys(_CONTADORES, 0)
 
 
-def _ler_aba(pagina, indices, limite, cont, m):
+def _ler_aba(pagina, indices, primeira_linha, limite, cont, m):
     """Passe 1 de um mês: agrupa as linhas cruas por setor fiscal, para o passe 2
     carregar a referência geo de **um setor por vez** (~poucos MB) em vez da cidade
     inteira (~450 MB). O buffer é de um mês só (~22 MB), então a memória não cresce
@@ -210,9 +246,9 @@ def _ler_aba(pagina, indices, limite, cont, m):
     """
     por_setor: dict[str, list] = {}
     n = 0
-    for bruta in pagina.iter_rows(min_row=2, values_only=True):
+    for bruta in pagina.iter_rows(min_row=primeira_linha, values_only=True):
         bruta = _reordenar(bruta, indices)
-        if bruta[C_SQL] is None:
+        if bruta[C_SQL] is None or _eh_linha_de_cabecalho(bruta):
             continue
         if limite and n >= limite:
             break
@@ -304,12 +340,14 @@ def carregar(arquivo, abas=None, *, blocos=BLOCOS_PADRAO, limite=None, substitui
 
         # Todas as abas são conferidas antes de a primeira ser gravada: uma aba com
         # coluna faltando no fim da planilha não pode deixar as anteriores já gravadas.
-        mapas, colunas_ignoradas = {}, {}
+        mapas, colunas_ignoradas, sem_cabecalho = {}, {}, []
         for aba in alvo:
             cabecalho = next(wb[aba].iter_rows(min_row=1, max_row=1, values_only=True), ())
-            mapas[aba], ignoradas = _mapa_de_colunas(cabecalho, aba)
+            mapas[aba], ignoradas, sem = _mapa_de_colunas(cabecalho, aba)
             if ignoradas:
                 colunas_ignoradas[aba] = ignoradas
+            if sem:
+                sem_cabecalho.append(aba)
 
         cont = _zero()
         por_mes: dict[str, dict] = {}
@@ -322,7 +360,8 @@ def carregar(arquivo, abas=None, *, blocos=BLOCOS_PADRAO, limite=None, substitui
             ano_guia, mes_guia = int(aba[4:]), coercao.mes_guia(aba)
             m = por_mes.setdefault(f"{ano_guia}-{mes_guia:02d}", _zero())
 
-            por_setor = _ler_aba(wb[aba], mapas[aba], limite, cont, m)
+            primeira_linha = 1 if aba in sem_cabecalho else 2
+            por_setor = _ler_aba(wb[aba], mapas[aba], primeira_linha, limite, cont, m)
             setores.update(por_setor)
             _gravar_mes(
                 por_setor, ano_guia, mes_guia, cont, m,
@@ -345,7 +384,7 @@ def carregar(arquivo, abas=None, *, blocos=BLOCOS_PADRAO, limite=None, substitui
             cur.execute("ANALYZE radar_transacao")
 
     resumo = {"total": cont, "por_mes": por_mes, "setores": len(setores),
-              "colunas_ignoradas": colunas_ignoradas,
+              "colunas_ignoradas": colunas_ignoradas, "abas_sem_cabecalho": sem_cabecalho,
               "segundos": round(time.monotonic() - t0, 1), "pico_mb": round(_pico_mb())}
     if progresso:
         progresso({"fim": True, **cont})
@@ -397,6 +436,8 @@ class Command(BaseCommand):
 
         for aba, nomes in sorted(r["colunas_ignoradas"].items()):
             self.stdout.write(self.style.WARNING(f"  {aba}: colunas ignoradas: {', '.join(nomes)}"))
+        for aba in r["abas_sem_cabecalho"]:
+            self.stdout.write(self.style.WARNING(f"  {aba}: sem cabeçalho, lida na ordem padrão"))
 
         t = r["total"]
         self.stdout.write(self.style.SUCCESS(

@@ -185,7 +185,14 @@ pontuação). Três regras:
   recusada com o nome da aba e da coluna, e nada é gravado;
 - coluna que a carga não conhece → ignorada, e listada no resumo
   (`colunas_ignoradas`) e na saída do comando;
-- a mesma coluna duas vezes → recusada.
+- a mesma coluna duas vezes → recusada, se for uma das que a carga grava; se for uma
+  que ela não usa, as duas cópias são ignoradas e listadas no resumo (NOV e DEZ-2023,
+  FEV, MAI e SET-2024 trazem `ACC (IPTU)` duas vezes, no lugar da descrição do padrão);
+- aba sem cabeçalho (a primeira linha já é uma transação: JAN e OUT-2024) → lida na
+  ordem padrão **só se** a primeira linha tiver SQL na coluna A, natureza "N." na H e
+  data na J; senão, recusada. O resumo lista essas abas (`abas_sem_cabecalho`);
+- linha de cabeçalho perdida no meio da aba (JAN, FEV e OUT-2024, planilha montada
+  colando pedaços) → pulada, sem contar como linha lida.
 
 Variações reais já aceitas: `Valor de Transação` com ou sem "(declarado pelo
 contribuinte)", o typo `Descrição do pardão (IPTU)` da `FEV-2026` e a 29ª coluna vazia.
@@ -209,3 +216,16 @@ aba, mas é a única lacuna real da reconciliação: se `lidas` não bater com a
 contagem manual da aba, é esse o motivo mais provável, não corrupção de dado.
 `descartadas` é o outro caso — `sql` tem conteúdo mas não vira 11 dígitos válidos —,
 e esse sim é contado.
+
+**As planilhas de 2023 e 2024** (conferidas em 11/10/2026) carregam com as regras acima.
+`--dry-run`: 2023 com 175.459 linhas, 2024 com 217.743 lidas e uma descartada (em FEV-2024
+a célula do SQL de uma linha traz o texto do cabeçalho; o resto da linha é dado). Uma
+coluna de SQL deslocada em relação às demais colocaria o imóvel no lugar errado sem
+erro: foi descartado comparando o logradouro de cada SQL com o das planilhas de
+2025–2026 — a concordância fica entre 95% e 98% em todas as abas, inclusive depois da
+linha corrompida.
+
+**Linhas idênticas.** Cerca de 0,3% das linhas se repetem por inteiro. 88% delas são
+cotas (proporção transmitida abaixo de 99%): co-compradores pagam uma guia cada, e a
+planilha não identifica o comprador. Essas nem entram no R$/m². As repetições de imóvel
+inteiro são ~0,04% da base e ficam como estão.
