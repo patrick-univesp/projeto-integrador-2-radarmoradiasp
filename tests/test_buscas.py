@@ -3,6 +3,8 @@ para regiões candidatas, casando contra o registro de distritos e contra o
 bairro cru da carga (bairro_norm).
 """
 
+import time
+
 import pytest
 
 from radar.buscas import sugerir_regioes
@@ -117,7 +119,9 @@ def test_lista_vencida_responde_a_antiga_e_renova_em_segundo_plano(monkeypatch):
     from radar import buscas
 
     chamadas = []
-    buscas._memo["teste"] = (["velha"], 0.0)  # carimbo no passado: vencida
+    # Vencida em relação ao relógio de agora: time.monotonic() conta desde que a
+    # máquina ligou, e num runner de CI recém-criado "0.0" ainda está dentro da hora.
+    buscas._memo["teste"] = (["velha"], time.monotonic() - buscas.VALIDADE_SEGUNDOS - 1)
     monkeypatch.setattr(buscas.threading, "Thread", lambda target, args, daemon: type(
         "T", (), {"start": lambda self: target(*args)})())
     assert buscas._memorizado("teste", lambda: chamadas.append(1) or ["nova"]) == ["velha"]
