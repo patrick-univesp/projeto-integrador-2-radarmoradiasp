@@ -192,7 +192,7 @@ def test_regiao_explica_o_que_o_valor_tipico_e(client):
     assert "Valor de imóveis usados" in corpo
     assert "Em 10% destas vendas" in corpo
     assert "#referencia" in corpo
-    assert "1 venda de leilão" in corpo
+    assert "1 venda que não é compra e venda (leilão" in corpo
     assert "não entra no valor típico" in corpo
 
 

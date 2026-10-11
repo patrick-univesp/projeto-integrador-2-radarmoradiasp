@@ -38,9 +38,9 @@
       declarado ficou abaixo dela.</li>
   {% endif %}
   {% if stats.n_fora_do_mercado %}
-    <li>{{ stats.n_fora_do_mercado }} venda{{ stats.n_fora_do_mercado|pluralize }} de leilão, retomada pelo
-      banco, permuta e outros negócios que não são compra e venda não
-      entra{{ stats.n_fora_do_mercado|pluralize:"m" }} no valor típico.</li>
+    <li>{{ stats.n_fora_do_mercado }} venda{{ stats.n_fora_do_mercado|pluralize }} que não
+      {{ stats.n_fora_do_mercado|pluralize:"é,são" }} compra e venda (leilão, retomada pelo banco, permuta e
+      outras) não entra{{ stats.n_fora_do_mercado|pluralize:"m" }} no valor típico.</li>
   {% endif %}
   {% if periodo %}<li>Período coberto pelos dados: {{ periodo }}.</li>{% endif %}
 </ul>
