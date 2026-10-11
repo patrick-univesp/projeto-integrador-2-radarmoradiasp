@@ -173,8 +173,24 @@ um mês sem tocar nos outros anos.
 **A planilha de 2025** (extração de 28/01/2026, 12 abas, 44,5 MB) foi conferida: as
 28 colunas estão na **mesma ordem e com os mesmos cabeçalhos** da de 2026 em todas as
 abas; `ABR`, `JUN`, `SET` e `NOV` trazem uma 29ª coluna vazia, o mesmo caso da
-`FEV-2026`, que a leitura por posição já absorve. Um `--dry-run` leu 230.525 linhas,
-zero descartadas, `lidas` batendo com cada aba, pico de 166 MB.
+`FEV-2026`. Um `--dry-run` leu 230.525 linhas, zero descartadas, `lidas` batendo com
+cada aba, pico de 166 MB.
+
+**As colunas são lidas pelo cabeçalho, não pela posição.** Antes de gravar qualquer
+linha, a carga lê o cabeçalho de **todas** as abas e monta, para cada uma, o mapa
+nome → coluna (`CABECALHOS` em `carregar_itbi.py`; a comparação ignora acento, caixa e
+pontuação). Três regras:
+
+- falta uma coluna que a carga grava ou usa (`OBRIGATORIAS`) → a carga inteira é
+  recusada com o nome da aba e da coluna, e nada é gravado;
+- coluna que a carga não conhece → ignorada, e listada no resumo
+  (`colunas_ignoradas`) e na saída do comando;
+- a mesma coluna duas vezes → recusada.
+
+Variações reais já aceitas: `Valor de Transação` com ou sem "(declarado pelo
+contribuinte)", o typo `Descrição do pardão (IPTU)` da `FEV-2026` e a 29ª coluna vazia.
+Uma planilha de outro ano com as colunas em outra ordem carrega igual; com uma coluna
+renomeada, falha avisando qual é — nunca grava um campo no lugar de outro.
 
 O resumo traz `por_mes` — lidas / gravadas / descartadas / `qual!=0` / sem geo por
 mês da guia — para bater com a contagem de cada aba da planilha e entender uma

@@ -6,8 +6,10 @@ versionada (``radar/carga/geo_ref.py``, sem ``shapely``). Grava em blocos com
 ``bulk_create``. Detalhe: ``docs/carga-itbi.md``.
 """
 
+import re
 import resource
 import time
+import unicodedata
 from decimal import Decimal
 
 import openpyxl
@@ -19,12 +21,93 @@ from radar.carga.normalizacao import normalizar_bairro
 from radar.models import Transacao
 from radar.regioes import slug_de_distrito
 
-# Posição das 28 colunas na aba mensal (lidas por posição: FEV-2026 tem uma
-# coluna extra vazia e o cabeçalho do padrão vem com typo).
+# Posições canônicas das 28 colunas. Cada linha da planilha é reordenada para
+# esta ordem a partir do cabeçalho da aba (ver ``_mapa_de_colunas``), então o
+# resto da carga não depende da ordem em que a planilha traz as colunas.
 (C_SQL, C_LOGR, C_NUM, C_COMPL, C_BAIRRO, C_REF, C_CEP, C_NATUREZA,
  C_VALOR, C_DATA, C_VVR, C_PROP, C_VVRP, C_BASE, C_TIPOFIN, C_VALFIN,
  C_CARTORIO, C_MATRIC, C_SITSQL, C_ATERR, C_TESTADA, C_FRACAO, C_ACONSTR,
  C_USOCOD, C_USODESC, C_PADRCOD, C_PADRDESC, C_ACC) = range(28)
+
+# Cabeçalho aceito em cada posição canônica, já passado por ``_chave``. Mais de um
+# nome é variação vista de verdade: o valor ganhou "(declarado pelo contribuinte)"
+# em 2025, e a aba FEV-2026 escreve "pardão".
+CABECALHOS = (
+    ("N DO CADASTRO SQL",),
+    ("NOME DO LOGRADOURO",),
+    ("NUMERO",),
+    ("COMPLEMENTO",),
+    ("BAIRRO",),
+    ("REFERENCIA",),
+    ("CEP",),
+    ("NATUREZA DE TRANSACAO",),
+    ("VALOR DE TRANSACAO DECLARADO PELO CONTRIBUINTE", "VALOR DE TRANSACAO"),
+    ("DATA DE TRANSACAO",),
+    ("VALOR VENAL DE REFERENCIA",),
+    ("PROPORCAO TRANSMITIDA",),
+    ("VALOR VENAL DE REFERENCIA PROPORCIONAL",),
+    ("BASE DE CALCULO ADOTADA",),
+    ("TIPO DE FINANCIAMENTO",),
+    ("VALOR FINANCIADO",),
+    ("CARTORIO DE REGISTRO",),
+    ("MATRICULA DO IMOVEL",),
+    ("SITUACAO DO SQL",),
+    ("AREA DO TERRENO M2",),
+    ("TESTADA M",),
+    ("FRACAO IDEAL",),
+    ("AREA CONSTRUIDA M2",),
+    ("USO IPTU",),
+    ("DESCRICAO DO USO IPTU",),
+    ("PADRAO IPTU",),
+    ("DESCRICAO DO PADRAO IPTU", "DESCRICAO DO PARDAO IPTU"),
+    ("ACC IPTU",),
+)
+
+# As colunas que a carga grava ou usa para derivar campo. Faltando uma delas, a aba
+# é recusada antes de qualquer gravação; as outras podem faltar e viram None.
+OBRIGATORIAS = frozenset({
+    C_SQL, C_LOGR, C_NUM, C_COMPL, C_BAIRRO, C_CEP, C_NATUREZA, C_VALOR, C_DATA,
+    C_PROP, C_VVRP, C_BASE, C_TIPOFIN, C_VALFIN, C_CARTORIO, C_MATRIC, C_SITSQL,
+    C_ACONSTR, C_USOCOD,
+})
+
+_POR_CABECALHO = {nome: pos for pos, nomes in enumerate(CABECALHOS) for nome in nomes}
+_ORDEM_PADRAO = tuple(range(len(CABECALHOS)))
+
+
+def _chave(texto):
+    """``'N° do Cadastro (SQL)'`` → ``'N DO CADASTRO SQL'``: sem acento, maiúsculo,
+    só letras e dígitos separados por um espaço."""
+    sem_acento = unicodedata.normalize("NFKD", str(texto)).encode("ascii", "ignore").decode()
+    return " ".join(re.sub(r"[^A-Z0-9]+", " ", sem_acento.upper()).split())
+
+
+def _mapa_de_colunas(cabecalho, aba):
+    """Para cada posição canônica, o índice da coluna na aba (``None`` se faltar).
+    Devolve também os cabeçalhos que a carga não conhece, para o resumo."""
+    indices = [None] * len(CABECALHOS)
+    ignoradas = []
+    for i, celula in enumerate(cabecalho):
+        if celula is None or not str(celula).strip():
+            continue
+        pos = _POR_CABECALHO.get(_chave(celula))
+        if pos is None:
+            ignoradas.append(str(celula).strip())
+        elif indices[pos] is not None:
+            raise CommandError(f"aba {aba}: a coluna {celula!r} aparece duas vezes")
+        else:
+            indices[pos] = i
+    faltando = [CABECALHOS[pos][0] for pos in sorted(OBRIGATORIAS) if indices[pos] is None]
+    if faltando:
+        raise CommandError(f"aba {aba}: faltam as colunas {', '.join(faltando)}")
+    return tuple(indices), ignoradas
+
+
+def _reordenar(bruta, indices):
+    if indices == _ORDEM_PADRAO:
+        return bruta[:len(indices)]
+    n = len(bruta)
+    return tuple(bruta[i] if i is not None and i < n else None for i in indices)
 
 BLOCOS_PADRAO = 2000
 
@@ -118,7 +201,7 @@ def _zero():
     return dict.fromkeys(_CONTADORES, 0)
 
 
-def _ler_aba(pagina, limite, cont, m):
+def _ler_aba(pagina, indices, limite, cont, m):
     """Passe 1 de um mês: agrupa as linhas cruas por setor fiscal, para o passe 2
     carregar a referência geo de **um setor por vez** (~poucos MB) em vez da cidade
     inteira (~450 MB). O buffer é de um mês só (~22 MB), então a memória não cresce
@@ -127,6 +210,7 @@ def _ler_aba(pagina, limite, cont, m):
     por_setor: dict[str, list] = {}
     n = 0
     for bruta in pagina.iter_rows(min_row=2, values_only=True):
+        bruta = _reordenar(bruta, indices)
         if bruta[C_SQL] is None:
             continue
         if limite and n >= limite:
@@ -217,6 +301,15 @@ def carregar(arquivo, abas=None, *, blocos=BLOCOS_PADRAO, limite=None, substitui
         if abas and not alvo:
             raise CommandError(f"nenhuma das abas {abas} existe em {arquivo} (tem: {disponiveis})")
 
+        # Todas as abas são conferidas antes de a primeira ser gravada: uma aba com
+        # coluna faltando no fim da planilha não pode deixar as anteriores já gravadas.
+        mapas, colunas_ignoradas = {}, {}
+        for aba in alvo:
+            cabecalho = next(wb[aba].iter_rows(min_row=1, max_row=1, values_only=True), ())
+            mapas[aba], ignoradas = _mapa_de_colunas(cabecalho, aba)
+            if ignoradas:
+                colunas_ignoradas[aba] = ignoradas
+
         cont = _zero()
         por_mes: dict[str, dict] = {}
         setores = set()
@@ -228,7 +321,7 @@ def carregar(arquivo, abas=None, *, blocos=BLOCOS_PADRAO, limite=None, substitui
             ano_guia, mes_guia = int(aba[4:]), coercao.mes_guia(aba)
             m = por_mes.setdefault(f"{ano_guia}-{mes_guia:02d}", _zero())
 
-            por_setor = _ler_aba(wb[aba], limite, cont, m)
+            por_setor = _ler_aba(wb[aba], mapas[aba], limite, cont, m)
             setores.update(por_setor)
             _gravar_mes(
                 por_setor, ano_guia, mes_guia, cont, m,
@@ -251,6 +344,7 @@ def carregar(arquivo, abas=None, *, blocos=BLOCOS_PADRAO, limite=None, substitui
             cur.execute("ANALYZE radar_transacao")
 
     resumo = {"total": cont, "por_mes": por_mes, "setores": len(setores),
+              "colunas_ignoradas": colunas_ignoradas,
               "segundos": round(time.monotonic() - t0, 1), "pico_mb": round(_pico_mb())}
     if progresso:
         progresso({"fim": True, **cont})
@@ -299,6 +393,9 @@ class Command(BaseCommand):
                 f"  {chave}: {m['lidas']} / {m['gravadas']} / {m['descartadas']} / "
                 f"{m['ruins']} / {m['sem_geo']} / {m['sem_regiao']}"
             )
+
+        for aba, nomes in sorted(r["colunas_ignoradas"].items()):
+            self.stdout.write(self.style.WARNING(f"  {aba}: colunas ignoradas: {', '.join(nomes)}"))
 
         t = r["total"]
         self.stdout.write(self.style.SUCCESS(

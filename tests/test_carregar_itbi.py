@@ -327,3 +327,73 @@ def test_cancelado_territorial_guarda_situacao_mas_nao_marca_qualidade(tmp_path)
     t = Transacao.objects.get(sql="55555555555")
     assert t.situacao_sql == "Cancelado Territorial"
     assert t.qualidade == 0
+
+
+# --- colunas pelo cabeçalho, não pela posição ---------------------------------
+
+_LINHA_CABECALHO = LINHAS_QUALIDADE[-1]
+
+
+def _planilha(tmp_path, abas):
+    """abas: {nome: (cabecalho, linhas)}."""
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    for nome, (cabecalho, linhas) in abas.items():
+        ws = wb.create_sheet(nome)
+        ws.append(cabecalho)
+        for linha in linhas:
+            ws.append(linha)
+    caminho = tmp_path / "cabecalho.xlsx"
+    wb.save(caminho)
+    return str(caminho)
+
+
+@pytest.mark.django_db
+def test_colunas_embaralhadas_gravam_nos_campos_certos(tmp_path):
+    ordem = list(reversed(range(len(CABECALHO))))
+    cabecalho = [CABECALHO[i] for i in ordem]
+    linha = [_LINHA_CABECALHO[i] for i in ordem]
+    carregar(_planilha(tmp_path, {"MAR-2026": (cabecalho, [linha])}), base_dir_geo=str(GEO))
+    t = Transacao.objects.get(sql="55555555555")
+    assert t.logradouro == "R TESTE E"
+    assert t.valor_transacao == Decimal("500000.00")
+    assert t.situacao_sql == "Cancelado Territorial"
+    assert t.cartorio == "1º CRI"
+    assert t.natureza == "1.Compra e venda"
+
+
+@pytest.mark.django_db
+def test_coluna_obrigatoria_faltando_recusa_antes_de_gravar(tmp_path):
+    sem_sql = [c for c in CABECALHO if c != "N° do Cadastro (SQL)"]
+    arquivo = _planilha(tmp_path, {
+        "FEV-2026": (CABECALHO, [_LINHA_CABECALHO]),
+        "MAR-2026": (sem_sql, [_LINHA_CABECALHO[1:]]),
+    })
+    with pytest.raises(CommandError, match=r"aba MAR-2026: faltam as colunas N DO CADASTRO SQL"):
+        carregar(arquivo, base_dir_geo=str(GEO))
+    assert Transacao.objects.count() == 0  # a aba boa, que vem antes, também não entrou
+
+
+@pytest.mark.django_db
+def test_variacoes_reais_de_cabecalho_sao_aceitas(tmp_path):
+    cabecalho = list(CABECALHO)
+    cabecalho[cmd.C_VALOR] = "Valor de Transação (declarado pelo contribuinte)"
+    cabecalho[cmd.C_PADRDESC] = "Descrição do pardão (IPTU)"
+    r = carregar(_planilha(tmp_path, {"FEV-2026": (cabecalho + [None], [_LINHA_CABECALHO + [None]])}),
+                 base_dir_geo=str(GEO))
+    assert r["total"]["gravadas"] == 1
+    assert r["colunas_ignoradas"] == {}
+
+
+@pytest.mark.django_db
+def test_coluna_desconhecida_e_ignorada_e_listada(tmp_path):
+    r = carregar(_planilha(tmp_path, {"MAR-2026": (CABECALHO + ["Coluna Nova"],
+                                                   [_LINHA_CABECALHO + ["x"]])}),
+                 base_dir_geo=str(GEO))
+    assert r["total"]["gravadas"] == 1
+    assert r["colunas_ignoradas"] == {"MAR-2026": ["Coluna Nova"]}
+
+
+def test_coluna_repetida_e_recusada():
+    with pytest.raises(CommandError, match="aparece duas vezes"):
+        cmd._mapa_de_colunas(CABECALHO + ["Bairro"], "JAN-2026")

@@ -133,7 +133,7 @@ sem `pandas` e sem `shapely` (ver [`carga-itbi.md`](carga-itbi.md)).
 
 ```mermaid
 flowchart TD
-    A["Linha de uma aba mensal do .xlsx<br/>28 colunas, lidas por posição"] --> B["Coerção de tipos<br/>para_sql · para_numero_porta · para_numero<br/>para_data · para_cep · para_texto"]
+    A["Linha de uma aba mensal do .xlsx<br/>28 colunas, lidas pelo cabeçalho"] --> B["Coerção de tipos<br/>para_sql · para_numero_porta · para_numero<br/>para_data · para_cep · para_texto"]
     B --> C{"sql é 11 dígitos válidos?"}
     C -- não --> X["descarta<br/>(conta no resumo)"]
     C -- sim --> D["Mineração<br/>ano_transacao · uso_grupo · rs_m2_construido<br/>qualidade (5 sinais) · flag_cadastro_defasado"]

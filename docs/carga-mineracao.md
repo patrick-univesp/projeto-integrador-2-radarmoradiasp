@@ -2,8 +2,8 @@
 
 # Carga: coerção, normalização e mineração
 
-A carga de ITBI abre a **planilha crua** (`.xlsx`, 7 abas, 28 colunas lidas por
-posição) e minera no servidor, em streaming, sem `pandas` e sem `shapely`. Este
+A carga de ITBI abre a **planilha crua** (`.xlsx`, uma aba por mês, 28 colunas lidas
+pelo cabeçalho) e minera no servidor, em streaming, sem `pandas` e sem `shapely`. Este
 documento cobre a **lógica pura** que transforma uma linha da planilha nos campos do
 modelo `Transacao` — as funções em `radar/carga/`.
 
@@ -150,9 +150,9 @@ Constantes: `ALIQUOTA_ITBI = 0.03`, `PROPORCAO_MIN_METRICA = 99.0`,
 
 ### Causa-raiz da coluna extra de FEV-2026
 
-`carregar_itbi.py` lê 28 colunas por posição fixa porque a aba `FEV-2026` tem uma
-coluna extra e o cabeçalho de uma delas vem com erro de digitação
-(`Descrição do pardão (IPTU)`, sem o "r"). Auditoria sobre a base completa achou a
+A aba `FEV-2026` tem uma coluna extra e o cabeçalho de uma delas vem com erro de
+digitação (`Descrição do pardão (IPTU)`, sem o "r"); a leitura pelo cabeçalho aceita as
+duas coisas (ver `docs/carga-itbi.md`). Auditoria sobre a base completa achou a
 causa: a **linha 2.196** daquela aba tem a razão social de uma incorporadora
 (`JAGUARIAIAVA DIALOGO EMPREENDIMENTOS IMOBILIARIOS`) vazada dentro da coluna
 numérica `Valor de Transação` — isso empurrou todas as colunas daquela linha 4
