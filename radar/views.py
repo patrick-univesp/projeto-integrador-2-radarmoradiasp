@@ -406,7 +406,34 @@ def busca(request):
     resultados = sugerir(termo) if termo else []
     if len(resultados) == 1:
         return HttpResponseRedirect(resultados[0]["url"])
-    return render(request, "radar/busca.html", {"termo": termo, "resultados": resultados})
+    # Região achada pelo nome de um bairro traz a contagem do bairro (só serve para
+    # ordenar a sugestão); aqui o número aparece na tela, então vale o do distrito.
+    por_distrito = dict(
+        Transacao.objects.filter(distrito_slug__in=[r["slug"] for r in resultados if r["tipo"] == "regiao"])
+        .values_list("distrito_slug")
+        .annotate(n=Count("id"))
+    )
+    for r in resultados:
+        if r["tipo"] == "regiao":
+            r["n"] = por_distrito.get(r["slug"], r["n"])
+        r["n_fmt"] = _milhar(r["n"])
+    grupos = [
+        (titulo, itens)
+        for titulo, itens in (
+            ("Regiões", [r for r in resultados if r["tipo"] == "regiao"]),
+            ("Ruas", [r for r in resultados if r["tipo"] == "rua"]),
+        )
+        if itens
+    ]
+    return render(
+        request,
+        "radar/busca.html",
+        {
+            "termo": termo,
+            "grupos": grupos,
+            "regioes_destaque": [POR_SLUG[s] for s in REGIOES_DESTAQUE_SLUGS],
+        },
+    )
 
 
 @ratelimit(key="ip", rate=TAXA_CONSULTA, block=False)

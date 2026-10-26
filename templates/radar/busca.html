@@ -1,24 +1,71 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block titulo %}{% if termo %}Busca por “{{ termo }}”{% else %}Busca{% endif %} · Radar da Moradia SP{% endblock %}
 
 {% block conteudo %}
-<div class="container simples">
-  <h1>{% if termo %}Busca por “{{ termo }}”{% else %}Busca{% endif %}</h1>
-  {% if resultados %}
-    <ul class="busca-resultados">
-      {% for r in resultados %}
-        <li>
-          <a href="{{ r.url }}">{{ r.texto }}</a>
-          <span class="busca-resultados__tipo">{% if r.tipo == "rua" %}rua{% else %}região{% endif %} · {{ r.n }} transaç{{ r.n|pluralize:"ão,ões" }}</span>
-        </li>
-      {% endfor %}
-    </ul>
-  {% elif termo %}
-    <p>Nenhuma região ou rua encontrada para “{{ termo }}”. Tente o nome de um bairro, de uma rua ou um CEP.</p>
+<div class="container busca-pagina">
+  <p class="mono busca-pagina__rotulo">Busca</p>
+  <h1 class="busca-pagina__titulo">{% if termo %}Resultados para “{{ termo }}”{% else %}O que você procura?{% endif %}</h1>
+
+  <form class="busca busca-pagina__form" action="{% url 'radar:busca' %}" method="get" role="search">
+    <div class="busca__caixa">
+      <span class="busca__lupa" aria-hidden="true"></span>
+      <input class="busca__campo" type="search" id="q" name="q" value="{{ termo }}"
+             aria-label="Buscar bairro, rua ou CEP"
+             placeholder="Digite um bairro, rua ou CEP de São Paulo"
+             autocomplete="off" enterkeyhint="search" required
+             role="combobox" aria-expanded="false" aria-autocomplete="list"
+             aria-controls="sugestoes-lista" data-autocomplete="navegar">
+      <button class="busca__botao" type="submit">Buscar</button>
+    </div>
+    <ul id="sugestoes-lista" class="sugestoes" role="listbox" aria-label="Sugestões de região" hidden></ul>
+  </form>
+
+  {% if grupos %}
+    {% for titulo, itens in grupos %}
+      <section class="busca-grupo" aria-labelledby="grupo-{{ forloop.counter }}">
+        <h2 class="mono busca-grupo__titulo" id="grupo-{{ forloop.counter }}">{{ titulo }}</h2>
+        <ul class="resultados">
+          {% for r in itens %}
+            <li>
+              <a class="resultado" href="{{ r.url }}">
+                <span class="resultado__nome">{{ r.texto }}</span>
+                <span class="resultado__n">{{ r.n_fmt }} transaç{{ r.n|pluralize:"ão,ões" }}</span>
+                <span class="resultado__seta" aria-hidden="true">→</span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endfor %}
   {% else %}
-    <p>Digite o nome de um bairro, de uma rua ou um CEP.</p>
+    <div class="busca-vazia">
+      {% if termo %}
+        <p>Nenhuma região ou rua encontrada para “{{ termo }}”. Tente o nome de um bairro, de uma rua ou um CEP.</p>
+      {% else %}
+        <p>Digite o nome de um bairro, de uma rua ou um CEP.</p>
+      {% endif %}
+      <div class="atalhos">
+        <span class="mono hero__atalhos-titulo">mais buscadas</span>
+        {% for r in regioes_destaque %}
+          <a class="atalho" href="{% url 'radar:regiao' r.slug %}">{{ r.nome }}</a>
+        {% endfor %}
+        <a class="atalho atalho--mapa" href="{% url 'radar:mapa' %}">
+          <svg class="atalho__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z" />
+            <path d="M9 4v13" />
+            <path d="M15 7v13" />
+          </svg>
+          Mapa de São Paulo
+        </a>
+      </div>
+    </div>
   {% endif %}
-  <p class="simples__acao"><a href="{% url 'radar:inicio' %}">Voltar para a busca</a></p>
 </div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/autocomplete.js' %}" defer></script>
 {% endblock %}

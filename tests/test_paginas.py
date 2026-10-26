@@ -102,6 +102,25 @@ def test_busca_com_varios_resultados_lista_regioes_e_ruas(client):
 
 
 @pytest.mark.django_db
+def test_busca_separa_regioes_de_ruas_e_mantem_o_termo_na_caixa(client):
+    _transacao_regiao(logradouro_norm="RUA DA MOOCA")
+    corpo = client.get(reverse("radar:busca"), {"q": "Mooca"}).content.decode()
+    assert corpo.index(">Regiões<") < corpo.index(">Ruas<")
+    assert 'value="Mooca"' in corpo
+
+
+@pytest.mark.django_db
+def test_regiao_achada_pelo_bairro_mostra_o_total_do_distrito(client):
+    """O bairro "DOMINGOS" leva a São Domingos; o número na lista é o do distrito."""
+    _transacao_regiao(distrito="SAO DOMINGOS", distrito_slug="sao-domingos", bairro_norm="DOMINGOS")
+    for _ in range(2):
+        _transacao_regiao(distrito="SAO DOMINGOS", distrito_slug="sao-domingos", bairro_norm="VILA X")
+    _transacao_regiao(logradouro_norm="RUA DOMINGOS DE MORAIS")
+    corpo = client.get(reverse("radar:busca"), {"q": "Domingos"}).content.decode()
+    assert "3 transações" in corpo
+
+
+@pytest.mark.django_db
 def test_busca_sem_resultado_explica(client):
     corpo = client.get(reverse("radar:busca"), {"q": "xyzw"}).content.decode()
     assert "Nenhuma região ou rua encontrada" in corpo

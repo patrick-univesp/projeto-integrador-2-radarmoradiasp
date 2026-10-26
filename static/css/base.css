@@ -456,11 +456,57 @@ main {
 .simples h1 { font-size: var(--t-titulo); font-weight: var(--peso-forte); letter-spacing: -.015em; }
 .simples p { margin-top: var(--e-4); color: var(--text-2); }
 .simples__acao { margin-top: var(--e-6); }
-.busca-resultados { margin-top: var(--e-6); display: flex; flex-direction: column; gap: var(--e-3); }
-.busca-resultados__tipo { margin-left: var(--e-2); font-size: .8125rem; color: var(--text-3); }
+
+.busca-pagina { padding-block: var(--e-8) var(--e-12); max-width: 720px; }
+.busca-pagina__rotulo { margin-bottom: var(--e-2); }
+.busca-pagina__titulo {
+  font-size: var(--t-titulo);
+  font-weight: var(--peso-forte);
+  letter-spacing: -.015em;
+  overflow-wrap: anywhere;
+}
+.busca-pagina__form { margin-top: var(--e-6); }
+
+.busca-grupo { margin-top: var(--e-8); }
+.busca-grupo__titulo { margin-bottom: var(--e-3); }
+.resultados {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--raio-cartao);
+  overflow: hidden;
+}
+.resultados li + li { border-top: 1px solid var(--line); }
+.resultado {
+  display: flex;
+  align-items: center;
+  gap: var(--e-4);
+  min-height: var(--alvo-toque);
+  padding: var(--e-3) var(--e-4);
+  color: var(--text);
+}
+.resultado:hover { background: var(--accent-soft); color: var(--accent-ink); text-decoration: none; }
+.resultado:focus-visible { outline: 3px solid var(--accent-line); outline-offset: -3px; }
+.resultado__nome { flex: 1; min-width: 0; font-weight: 500; }
+.resultado__n {
+  flex: none;
+  font-size: var(--t-apoio);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.resultado__seta { flex: none; color: var(--text-3); transition: transform .15s ease; }
+.resultado:hover .resultado__seta { color: var(--accent); transform: translateX(2px); }
+
+.busca-vazia { margin-top: var(--e-8); }
+.busca-vazia p { color: var(--text-2); }
+.busca-vazia .atalhos { margin-top: var(--e-5); justify-content: flex-start; }
+
+@media (prefers-reduced-motion: reduce) {
+  .resultado__seta { transition: none; }
+}
 
 
 @media (min-width: 720px) {
+  .busca-pagina__titulo { font-size: 2.25rem; }
   .hero { padding-block: var(--e-12); }
   .hero__titulo { font-size: 2rem; }
   .hero__sub { font-size: 1.0625rem; }
